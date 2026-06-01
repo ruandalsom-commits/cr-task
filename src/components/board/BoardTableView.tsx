@@ -212,7 +212,12 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                               position: (groupTasks?.length || 0) + 1 
                             }
                           ]);
-                          if (error) alert('Erro ao criar: ' + error.message);
+                          if (error) {
+                            alert('Erro ao criar: ' + error.message);
+                          } else {
+                            // Força a tela a puxar as tarefas novas do banco na mesma hora
+                            queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                          }
                         }
                       }}
                     />

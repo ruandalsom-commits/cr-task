@@ -61,14 +61,28 @@ export function Sidebar() {
         ) : (
           <div className="flex flex-col gap-1">
             {boards?.map(board => (
-              <Link 
-                key={board.id} 
-                href={`/boards/${board.id}`}
-                className="flex items-center gap-2 text-[#323338] hover:bg-slate-100 p-2 rounded-md cursor-pointer transition-colors"
-              >
-                <Grid className="w-4 h-4 text-blue-500" />
-                <span className="text-[14px] font-medium truncate">{board.name}</span>
-              </Link>
+              <div key={board.id} className="flex items-center group/board relative">
+                <Link 
+                  href={`/boards/${board.id}`}
+                  className="flex items-center gap-2 text-[#323338] hover:bg-slate-100 p-2 rounded-md cursor-pointer transition-colors w-full"
+                >
+                  <Grid className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span className="text-[14px] font-medium truncate pr-8">{board.name}</span>
+                </Link>
+                <button 
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if(confirm(`Excluir o quadro "${board.name}"? Todas as tarefas serão perdidas!`)) {
+                      await supabase.from('boards').delete().eq('id', board.id);
+                      window.location.href = '/'; // Volta para a home
+                    }
+                  }}
+                  className="absolute right-2 opacity-0 group-hover/board:opacity-100 p-1 hover:bg-red-100 rounded text-slate-400 hover:text-red-500 transition-all"
+                  title="Excluir Quadro"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+                </button>
+              </div>
             ))}
           </div>
         )}
