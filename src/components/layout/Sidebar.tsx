@@ -28,11 +28,32 @@ export function Sidebar() {
       </div>
       
       <div className="p-4 flex-1 overflow-y-auto">
-        <div className="flex items-center justify-between text-slate-500 hover:bg-slate-100 p-2 rounded-md cursor-pointer mb-2 transition-colors">
+        <div className="flex items-center justify-between text-slate-500 hover:bg-slate-100 p-2 rounded-md cursor-pointer mb-2 transition-colors group">
           <div className="flex items-center gap-2">
             <LayoutTemplate className="w-4 h-4" />
             <span className="text-[14px] font-medium">Meus Quadros</span>
           </div>
+          <button 
+            onClick={async () => {
+              const name = prompt('Nome do novo quadro:');
+              if (name) {
+                // Para o MVP, estamos assumindo que o usuário só tem 1 workspace no array. Na versão final puxaremos isso dinamicamente.
+                const { data: ws } = await supabase.from('workspaces').select('id').limit(1);
+                if (ws && ws.length > 0) {
+                  const { data, error } = await supabase.from('boards').insert([{ name, workspace_id: ws[0].id }]).select();
+                  if (!error && data) {
+                    window.location.href = `/boards/${data[0].id}`;
+                  }
+                } else {
+                  alert('Você precisa criar uma Área de Trabalho primeiro!');
+                }
+              }
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-blue-600 transition-all"
+            title="Adicionar Novo Quadro"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M12 4v16m8-8H4"/></svg>
+          </button>
         </div>
 
         {isLoading ? (
