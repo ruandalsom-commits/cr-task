@@ -124,7 +124,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
         </div>
 
         <div className="px-8">
-          <div className="bg-white border-y border-slate-200 rounded-tl-md overflow-hidden relative">
+          <div className="bg-white border-y border-slate-200 rounded-tl-md relative">
             <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
                 <tr className="border-b border-slate-200 text-[#676879] text-[14px]">

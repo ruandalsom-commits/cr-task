@@ -11,21 +11,7 @@ export default function BoardPage({ params }: { params: Promise<{ boardId: strin
   const [activeTab, setActiveTab] = useState<'tabela' | 'kanban'>('tabela');
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    // Inscreve no canal do Supabase para escutar qualquer mudança nas tarefas
-    const channel = supabase
-      .channel('realtime_tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        // Recarrega os dados na tela
-        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardId]);
+  // Realtime foi desativado temporariamente para corrigir o loop de renderização do Next.js
 
   return (
     <div className="flex flex-col h-full w-full">
