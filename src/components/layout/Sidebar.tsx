@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { LayoutTemplate, Grid } from 'lucide-react';
+import { LayoutTemplate, Grid, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 export function Sidebar() {
@@ -15,16 +15,30 @@ export function Sidebar() {
     }
   });
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
   return (
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col z-10 hidden md:flex shrink-0">
-      <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-        <div className="w-8 h-8 rounded bg-orange-500 text-white flex items-center justify-center font-bold">
-          A
+      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded bg-orange-500 text-white flex items-center justify-center font-bold">
+            A
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-[14px] leading-tight">Minha Equipe</h3>
+            <span className="text-xs text-slate-500">Plano Pro</span>
+          </div>
         </div>
-        <div className="flex-1">
-          <h3 className="font-bold text-[14px] leading-tight">Minha Equipe</h3>
-          <span className="text-xs text-slate-500">Plano Pro</span>
-        </div>
+        <button 
+          onClick={handleLogout}
+          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+          title="Sair da Conta"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
       
       <div className="p-4 flex-1 overflow-y-auto">

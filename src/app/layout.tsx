@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
-import { Bell, Search, UserPlus, Grid, MoreHorizontal, LayoutTemplate, Briefcase } from "lucide-react";
+import { Bell, Search, UserPlus, Grid, MoreHorizontal, LayoutTemplate, Briefcase, LogOut } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { supabase } from "@/lib/supabaseClient";
 
 const inter = Inter({ subsets: ["latin"] });
 
