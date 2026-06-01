@@ -148,7 +148,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                       if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
                         const title = e.currentTarget.value.trim();
                         e.currentTarget.value = '';
-                        await supabase.from('tasks').insert([{ title, board_id: boardId, position: (tasks?.length || 0) + 1 }]);
+                        const { error } = await supabase.from('tasks').insert([{ title, board_id: boardId, position: (tasks?.length || 0) + 1 }]);
+                        if (error) {
+                          alert('Erro ao criar tarefa: ' + error.message);
+                        }
                       }
                     }}
                   />
