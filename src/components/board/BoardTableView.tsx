@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { StatusCell } from './StatusCell';
-import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal } from 'lucide-react';
 
 const TimelineBar = ({ progress, color }: { progress: number, color: string }) => (
   <div className="flex items-center w-full">
