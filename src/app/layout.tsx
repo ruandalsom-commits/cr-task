@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { Bell, Search, UserPlus, Grid, MoreHorizontal, LayoutTemplate, Briefcase } from "lucide-react";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -47,29 +48,8 @@ export default function RootLayout({
               </div>
             </aside>
             
-            {/* Sidebar Secundária (Menu da Equipe/Workspace) */}
-            <div className="w-64 bg-white border-r border-slate-200 flex flex-col z-10 hidden md:flex shrink-0">
-              <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-                <div className="w-8 h-8 rounded bg-orange-500 text-white flex items-center justify-center font-bold">
-                  A
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-[14px] leading-tight">Área de Trabalho</h3>
-                  <span className="text-xs text-slate-500">Plano Pro</span>
-                </div>
-              </div>
-              
-              <div className="p-4 flex-1 overflow-y-auto">
-                <div className="flex items-center gap-2 text-slate-500 hover:bg-slate-100 p-2 rounded-md cursor-pointer mb-1 transition-colors">
-                  <LayoutTemplate className="w-4 h-4" />
-                  <span className="text-[14px] font-medium">Desenvolvimento</span>
-                </div>
-                <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-2 rounded-md cursor-pointer transition-colors">
-                  <Grid className="w-4 h-4" />
-                  <span className="text-[14px] font-medium">Sprint Principal</span>
-                </div>
-              </div>
-            </div>
+            {/* Sidebar Secundária Dinâmica */}
+            <Sidebar />
 
             {/* Área Principal */}
             <main className="flex-1 flex flex-col overflow-hidden bg-white z-10 shadow-sm relative rounded-tl-2xl md:rounded-none border-l border-t md:border-t-0 border-slate-200 mt-2 ml-[-8px] md:mt-0 md:ml-0">

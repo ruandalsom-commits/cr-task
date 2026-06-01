@@ -1,27 +1,26 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { StatusCell } from './StatusCell';
-import { PlusCircle, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 
-// Componente para a barra de Timeline
 const TimelineBar = ({ progress, color }: { progress: number, color: string }) => (
   <div className="flex items-center w-full">
     <div className="flex-1 h-5 rounded-full overflow-hidden bg-slate-200 flex">
-      <div className={`h-full ${color}`} style={{ width: `${progress}%` }}></div>
-      <div className="h-full bg-slate-300" style={{ width: `${100 - progress}%` }}></div>
+      <div className={`h-full ${color} transition-all duration-500`} style={{ width: `${progress}%` }}></div>
+      <div className="h-full bg-slate-300 transition-all duration-500" style={{ width: `${100 - progress}%` }}></div>
     </div>
   </div>
 );
 
-// Componente para as Estrelas de Prioridade
-const PriorityStars = ({ rating }: { rating: number }) => (
-  <div className="flex items-center justify-center gap-0.5">
+const PriorityStars = ({ rating, onChange }: { rating: number, onChange: (newRating: number) => void }) => (
+  <div className="flex items-center justify-center gap-0.5 group/stars cursor-pointer">
     {[1, 2, 3, 4, 5].map((star) => (
       <svg 
         key={star} 
-        className={`w-4 h-4 ${star <= rating ? 'text-[#ffcc00]' : 'text-slate-200'}`} 
+        onClick={() => onChange(star)}
+        className={`w-4 h-4 transition-colors hover:scale-110 ${star <= rating ? 'text-[#ffcc00]' : 'text-slate-200 hover:text-yellow-200'}`} 
         fill="currentColor" 
         viewBox="0 0 20 20"
       >
@@ -32,6 +31,8 @@ const PriorityStars = ({ rating }: { rating: number }) => (
 );
 
 export function BoardTableView({ boardId }: { boardId: string }) {
+  const queryClient = useQueryClient();
+
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
     queryFn: async () => {
@@ -45,6 +46,22 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     },
   });
 
+  const deleteTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', boardId] })
+  });
+
+  const updateTask = useMutation({
+    mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
+      const { error } = await supabase.from('tasks').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', boardId] })
+  });
+
   if (isLoading) {
     return (
       <div className="p-8 flex items-center justify-center h-48">
@@ -53,121 +70,165 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     );
   }
 
-  // Dividir as tarefas artificialmente para mostrar o visual de grupos do Monday
-  const group1Tasks = tasks ? tasks.slice(0, Math.ceil(tasks.length / 2)) : [];
-  const group2Tasks = tasks ? tasks.slice(Math.ceil(tasks.length / 2)) : [];
+  // Agrupamento Real Baseado no "group_name" da tarefa.
+  // Se a coluna não existir ainda no DB (undefined), jogamos todas num grupo padrão.
+  const groupedTasks = tasks?.reduce((acc: any, task: any) => {
+    const groupName = task.group_name || 'Este mês';
+    if (!acc[groupName]) acc[groupName] = [];
+    acc[groupName].push(task);
+    return acc;
+  }, {}) || {};
 
-  const renderGroup = (title: string, color: string, colorHex: string, groupTasks: any[]) => (
-    <div className="mb-10">
-      <div className="flex items-center gap-2 mb-3 px-8">
-        <button className={`hover:opacity-80 transition-colors ${color}`}>
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 transform">
-            <path d="M7 10l5 5 5-5z" />
-          </svg>
-        </button>
-        <h2 className={`text-[22px] font-medium ${color}`}>{title}</h2>
-        <span className="text-slate-400 text-sm ml-2">{groupTasks.length} Tarefas</span>
-      </div>
+  // Grupos Padrão para visual sempre bonito mesmo vazio
+  const groupsToRender = Object.keys(groupedTasks).length > 0 
+    ? Object.keys(groupedTasks) 
+    : ['Este mês', 'Próximo mês'];
 
-      <div className="px-8">
-        <div className="bg-white border-y border-slate-200">
-          <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed' }}>
-            <thead>
-              <tr className="border-b border-slate-200 text-[#676879] text-[14px]">
-                <th className="w-2 p-0"></th>
-                <th className="w-8 text-center p-0 border-r border-slate-200"></th>
-                <th className="font-normal px-4 py-2 border-r border-slate-200" style={{ width: '35%' }}></th>
-                <th className="font-normal px-4 py-2 border-r border-slate-200 w-24 text-center">Resp.</th>
-                <th className="font-normal px-0 py-0 border-r border-slate-200 w-40 text-center">Status</th>
-                <th className="font-normal px-4 py-2 border-r border-slate-200 w-48 text-center">Timeline</th>
-                <th className="font-normal px-4 py-2 border-r border-slate-200 w-28 text-center">Prazo</th>
-                <th className="font-normal px-4 py-2 border-r border-slate-200 w-36 text-center">Prioridade</th>
-                <th className="w-10 text-center p-0">
-                  <PlusCircle className="w-4 h-4 mx-auto text-slate-400 hover:text-slate-600 cursor-pointer" />
-                </th>
-              </tr>
-            </thead>
-            <tbody className="text-[15px]">
-              {groupTasks && groupTasks.length > 0 ? (
-                groupTasks.map((task, idx) => (
-                  <tr key={task.id} className="group border-b border-slate-200 hover:bg-[#f5f6f8] transition-colors h-[42px]">
-                    <td className="w-2 p-0" style={{ backgroundColor: colorHex }}></td>
-                    <td className="w-8 text-center p-0 border-r border-slate-200 relative">
-                      <input type="checkbox" className="w-3.5 h-3.5 rounded-sm border-slate-300 opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer" />
+  const getGroupColor = (groupName: string) => {
+    if (groupName === 'Próximo mês') return { text: 'text-[#a25ddc]', bg: '#a25ddc' };
+    return { text: 'text-[#579bfc]', bg: '#579bfc' };
+  };
+
+  const renderGroup = (title: string, groupTasks: any[]) => {
+    const colors = getGroupColor(title);
+    
+    return (
+      <div key={title} className="mb-10">
+        <div className="flex items-center gap-2 mb-3 px-8">
+          <button className={`hover:opacity-80 transition-colors ${colors.text}`}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 transform">
+              <path d="M7 10l5 5 5-5z" />
+            </svg>
+          </button>
+          <h2 className={`text-[22px] font-medium ${colors.text}`}>{title}</h2>
+          <span className="text-slate-400 text-sm ml-2">{groupTasks?.length || 0} Tarefas</span>
+        </div>
+
+        <div className="px-8">
+          <div className="bg-white border-y border-slate-200">
+            <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed' }}>
+              <thead>
+                <tr className="border-b border-slate-200 text-[#676879] text-[14px]">
+                  <th className="w-2 p-0"></th>
+                  <th className="w-8 text-center p-0 border-r border-slate-200"></th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200" style={{ width: '35%' }}></th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-24 text-center">Resp.</th>
+                  <th className="font-normal px-0 py-0 border-r border-slate-200 w-40 text-center">Status</th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-48 text-center">Timeline</th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-32 text-center">Prazo</th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-36 text-center">Prioridade</th>
+                  <th className="w-10 text-center p-0"></th>
+                </tr>
+              </thead>
+              <tbody className="text-[15px]">
+                {groupTasks && groupTasks.length > 0 ? (
+                  groupTasks.map((task) => (
+                    <tr key={task.id} className="group/row border-b border-slate-200 hover:bg-[#f5f6f8] transition-colors h-[42px]">
+                      <td className="w-2 p-0" style={{ backgroundColor: colors.bg }}></td>
+                      <td className="w-8 text-center p-0 border-r border-slate-200 relative">
+                        <input type="checkbox" className="w-3.5 h-3.5 rounded-sm border-slate-300 opacity-0 group-hover/row:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer" />
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200 relative truncate">
+                        <input 
+                          type="text" 
+                          defaultValue={task.title} 
+                          onBlur={(e) => {
+                            if (e.target.value !== task.title) {
+                              updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
+                            }
+                          }}
+                          className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text"
+                        />
+                        {/* Botão de excluir que aparece no hover da linha */}
+                        <button 
+                          onClick={() => {
+                            if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md opacity-0 group-hover/row:opacity-100 transition-all bg-[#f5f6f8]"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200 text-center">
+                        <div className="w-8 h-8 rounded-full bg-slate-300 mx-auto overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 ring-blue-400 transition-all">
+                          <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} alt="avatar" className="w-full h-full object-cover" />
+                        </div>
+                      </td>
+                      <td className="p-0 border-r border-slate-200 relative z-10">
+                        <StatusCell task={task} />
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200">
+                        <TimelineBar 
+                          progress={task.status === 'Feito' ? 100 : task.status === 'Trabalhando' ? 60 : 30} 
+                          color={task.status === 'Feito' ? 'bg-[#00c875]' : task.status === 'Trabalhando' ? 'bg-[#fdab3d]' : 'bg-[#579bfc]'} 
+                        />
+                      </td>
+                      <td className="px-2 py-0 border-r border-slate-200 text-center text-[#323338]">
+                        <input 
+                          type="date" 
+                          defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
+                          onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
+                          className="bg-transparent outline-none text-sm cursor-pointer hover:bg-slate-200 p-1 rounded transition-colors w-full text-center"
+                        />
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200 text-center">
+                        <PriorityStars 
+                          rating={task.priority === 'Alta' ? 5 : task.priority === 'Baixa' ? 2 : 4} 
+                          onChange={(rating) => {
+                            const newPriority = rating === 5 ? 'Alta' : rating <= 2 ? 'Baixa' : 'Média';
+                            updateTask.mutate({ id: task.id, updates: { priority: newPriority } });
+                          }}
+                        />
+                      </td>
+                      <td className="w-10 text-center p-0"></td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={9} className="text-center py-6 text-slate-400 text-sm">
+                      Nenhuma tarefa aqui ainda.
                     </td>
-                    <td className="px-4 py-0 border-r border-slate-200 relative truncate">
-                      <input 
-                        type="text" 
-                        defaultValue={task.title} 
-                        onBlur={async (e) => {
-                          if (e.target.value !== task.title) {
-                            await supabase.from('tasks').update({ title: e.target.value }).eq('id', task.id);
-                          }
-                        }}
-                        className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text"
-                      />
-                    </td>
-                    <td className="px-4 py-0 border-r border-slate-200 text-center">
-                      <div className="w-8 h-8 rounded-full bg-slate-300 mx-auto overflow-hidden border border-slate-200">
-                        <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} alt="avatar" className="w-full h-full object-cover" />
-                      </div>
-                    </td>
-                    <td className="p-0 border-r border-slate-200">
-                      <StatusCell task={task} />
-                    </td>
-                    <td className="px-4 py-0 border-r border-slate-200">
-                      <TimelineBar progress={task.status === 'Feito' ? 100 : task.status === 'Trabalhando' ? 60 : 30} color={task.status === 'Feito' ? 'bg-[#00c875]' : task.status === 'Trabalhando' ? 'bg-[#fdab3d]' : 'bg-[#579bfc]'} />
-                    </td>
-                    <td className="px-4 py-0 border-r border-slate-200 text-center text-[#323338]">
-                      {task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '15 set'}
-                    </td>
-                    <td className="px-4 py-0 border-r border-slate-200 text-center">
-                      <PriorityStars rating={task.priority === 'Alta' ? 5 : task.priority === 'Baixa' ? 2 : 4} />
-                    </td>
-                    <td className="w-10 text-center p-0"></td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={9} className="text-center py-6 text-slate-400 text-sm">
-                    Nenhuma tarefa aqui ainda.
+                )}
+                
+                {/* Linha de Adicionar Item */}
+                <tr className="hover:bg-[#f5f6f8] transition-colors h-[42px]">
+                  <td className="w-2 p-0 bg-transparent border-l-[3px] border-transparent group-hover:border-l-slate-300"></td>
+                  <td className="w-8 border-r border-slate-200"></td>
+                  <td colSpan={7} className="px-4 py-0">
+                    <input 
+                      type="text" 
+                      placeholder="+ Adicionar Item" 
+                      className="w-full bg-transparent text-[#323338] placeholder-slate-400 outline-none text-[14px]"
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
+                          const taskTitle = e.currentTarget.value.trim();
+                          e.currentTarget.value = '';
+                          const { error } = await supabase.from('tasks').insert([
+                            { 
+                              title: taskTitle, 
+                              board_id: boardId, 
+                              group_name: title, 
+                              position: (groupTasks?.length || 0) + 1 
+                            }
+                          ]);
+                          if (error) alert('Erro ao criar: ' + error.message);
+                        }
+                      }}
+                    />
                   </td>
                 </tr>
-              )}
-              
-              {/* Linha de Adicionar Item */}
-              <tr className="hover:bg-[#f5f6f8] transition-colors h-[42px]">
-                <td className="w-2 p-0 bg-transparent border-l-[3px] border-transparent group-hover:border-l-slate-300"></td>
-                <td className="w-8 border-r border-slate-200"></td>
-                <td colSpan={7} className="px-4 py-0">
-                  <input 
-                    type="text" 
-                    placeholder="+ Adicionar Item" 
-                    className="w-full bg-transparent text-[#323338] placeholder-slate-400 outline-none text-[14px]"
-                    onKeyDown={async (e) => {
-                      if (e.key === 'Enter' && e.currentTarget.value.trim() !== '') {
-                        const title = e.currentTarget.value.trim();
-                        e.currentTarget.value = '';
-                        const { error } = await supabase.from('tasks').insert([{ title, board_id: boardId, position: (tasks?.length || 0) + 1 }]);
-                        if (error) {
-                          alert('Erro ao criar tarefa: ' + error.message);
-                        }
-                      }
-                    }}
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="w-full pb-12 pt-6">
-      {renderGroup('Este mês', 'text-[#579bfc]', '#579bfc', group1Tasks)}
-      {renderGroup('Próximo mês', 'text-[#a25ddc]', '#a25ddc', group2Tasks)}
+      {groupsToRender.map(groupName => renderGroup(groupName, groupedTasks[groupName] || []))}
     </div>
   );
 }
