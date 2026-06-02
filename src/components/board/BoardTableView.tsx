@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { StatusCell } from './StatusCell';
-import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal, MessageCirclePlus, AlertCircle, CheckCircle2, Search, UserPlus, Sparkles } from 'lucide-react';
 
 const TimelineBar = ({ progress, color }: { progress: number, color: string }) => (
   <div className="flex items-center w-full">
@@ -35,7 +35,31 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
+  const [assigneePopoverOpen, setAssigneePopoverOpen] = useState<string | null>(null);
   const [newUpdateText, setNewUpdateText] = useState('');
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    // Para resolver fuso horário
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    return new Intl.DateTimeFormat('pt-BR', { month: 'short', day: 'numeric' }).format(date).replace('.', '');
+  };
+
+  const getDueStatus = (dateString: string, status: string) => {
+    if (!dateString) return null;
+    if (status === 'Feito') return 'done';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(dateString);
+    dueDate.setMinutes(dueDate.getMinutes() + dueDate.getTimezoneOffset());
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate < today) return 'overdue';
+    if (dueDate.getTime() === today.getTime()) return 'today';
+    return 'pending';
+  };
 
   const { data: taskUpdates, refetch: refetchUpdates } = useQuery({
     queryKey: ['task_updates', taskDetailsOpen?.id],
@@ -184,49 +208,77 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           className="w-4 h-4 rounded border-slate-300 opacity-0 group-hover/row:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer checked:opacity-100 accent-blue-600" 
                         />
                       </td>
-                      <td className="px-4 py-0 border-r border-slate-200 relative truncate">
-                        <input 
-                          type="text" 
-                          defaultValue={task.title} 
-                          onBlur={(e) => {
-                            if (e.target.value !== task.title) {
-                              updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
-                            }
-                          }}
-                          className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text"
-                        />
-                        {/* Botões que aparecem no hover da linha (Chat e Excluir) */}
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-all bg-gradient-to-l from-white via-white to-transparent pl-4">
-                          <button 
-                            onClick={() => setTaskDetailsOpen(task)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md bg-white border border-slate-200 shadow-sm transition-all"
-                            title="Abrir Atualizações"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md bg-white border border-slate-200 shadow-sm transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                      <td className="px-4 py-0 border-r border-slate-200 relative truncate group/title">
+                        <div className="flex items-center justify-between w-full">
+                          <input 
+                            type="text" 
+                            defaultValue={task.title} 
+                            onBlur={(e) => {
+                              if (e.target.value !== task.title) {
+                                updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
+                              }
+                            }}
+                            className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text"
+                          />
+                          <div className="flex items-center gap-1 bg-[#f5f6f8] px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
+                            <button 
+                              onClick={() => setTaskDetailsOpen(task)}
+                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                              title="Adicionar atualização"
+                            >
+                              <MessageCirclePlus className="w-[18px] h-[18px] stroke-[1.5]" />
+                            </button>
+                            <button 
+                              onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
+                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-[18px] h-[18px] stroke-[1.5]" />
+                            </button>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-0 border-r border-slate-200 text-center relative group/avatar">
+                      <td className="px-4 py-0 border-r border-slate-200 text-center relative">
                         <div 
-                          onClick={() => {
-                            const email = prompt('Digite o e-mail do membro que deseja atribuir a esta tarefa (ou deixe em branco para remover):');
-                            if (email !== null) {
-                              // Na versão final isso buscaria o ID do usuário pelo e-mail
-                              alert(`Convite enviado para ${email}! (Funcionalidade visual)`);
-                            }
-                          }}
+                          onClick={() => setAssigneePopoverOpen(assigneePopoverOpen === task.id ? null : task.id)}
                           className="w-8 h-8 rounded-full bg-slate-300 mx-auto overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 ring-blue-400 transition-all"
-                          title="Atribuir responsável"
                         >
                           <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} alt="avatar" className="w-full h-full object-cover" />
                         </div>
+                        
+                        {/* Popover de Responsável */}
+                        {assigneePopoverOpen === task.id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setAssigneePopoverOpen(null)}></div>
+                            <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-4 text-left animate-in fade-in zoom-in duration-150">
+                              <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center bg-slate-100 rounded-full pl-1 pr-3 py-1 gap-2">
+                                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} className="w-6 h-6 rounded-full" />
+                                  <span className="text-xs font-semibold text-slate-700">Ruan Dalso...</span>
+                                  <button className="text-slate-400 hover:text-slate-700"><X className="w-3 h-3" /></button>
+                                </div>
+                              </div>
+                              <div className="relative mb-4">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input 
+                                  type="text" 
+                                  placeholder="Pesquise nomes, funções..." 
+                                  className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <h4 className="text-xs text-slate-500 font-semibold mb-2">Pessoas sugeridas</h4>
+                              <button className="flex items-center gap-3 w-full p-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 transition-colors">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><UserPlus className="w-4 h-4" /></div>
+                                Convide um novo membro por e-mail
+                              </button>
+                              <div className="mt-4 pt-4 border-t border-slate-100">
+                                <button className="flex items-center justify-center gap-2 w-full text-sm font-semibold text-slate-600 hover:bg-slate-50 p-2 rounded-lg transition-colors">
+                                  <Sparkles className="w-4 h-4 text-blue-500" /> Atribuir automaticamente
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="p-0 border-r border-slate-200 relative z-10">
                         <StatusCell task={task} />
@@ -237,13 +289,27 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           color={task.status === 'Feito' ? 'bg-[#00c875]' : task.status === 'Trabalhando' ? 'bg-[#fdab3d]' : 'bg-[#579bfc]'} 
                         />
                       </td>
-                      <td className="px-2 py-0 border-r border-slate-200 text-center text-[#323338]">
-                        <input 
-                          type="date" 
-                          defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
-                          onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
-                          className="bg-transparent outline-none text-sm cursor-pointer hover:bg-slate-200 p-1 rounded transition-colors w-full text-center"
-                        />
+                      <td className="p-0 border-r border-slate-200 text-center relative group/date cursor-pointer">
+                        <div className="absolute inset-0 z-10 w-full h-full opacity-0 cursor-pointer overflow-hidden">
+                           <input 
+                             type="date" 
+                             defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
+                             onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
+                             className="w-full h-full cursor-pointer"
+                             style={{ minHeight: '40px' }}
+                           />
+                        </div>
+                        <div className="flex items-center justify-center gap-2 h-full w-full pointer-events-none group-hover/date:bg-slate-100 transition-colors">
+                           {getDueStatus(task.due_date, task.status) === 'overdue' && (
+                             <AlertCircle className="w-4 h-4 text-red-500 fill-red-50 stroke-red-500" />
+                           )}
+                           {getDueStatus(task.due_date, task.status) === 'done' && (
+                             <CheckCircle2 className="w-4 h-4 text-green-500" />
+                           )}
+                           <span className={`text-[13px] ${getDueStatus(task.due_date, task.status) === 'overdue' ? 'text-red-500 font-medium' : 'text-[#323338]'}`}>
+                             {formatDate(task.due_date) || '-'}
+                           </span>
+                        </div>
                       </td>
                       <td className="px-4 py-0 border-r border-slate-200 text-center">
                         <PriorityStars 
