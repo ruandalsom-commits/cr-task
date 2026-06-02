@@ -31,7 +31,7 @@ export default function LoginPage() {
         setError('Credenciais inválidas. Verifique seu e-mail e senha.');
         setLoading(false);
       } else {
-        window.location.href = '/boards/1'; // Força o recarregamento para o middleware pegar o cookie
+        window.location.href = '/'; // Deixa a página inicial decidir para qual quadro enviar
       }
     } else {
       // ------------------ FLUXO DE CRIAR CONTA ------------------
