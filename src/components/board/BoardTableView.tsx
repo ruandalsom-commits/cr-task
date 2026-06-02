@@ -181,8 +181,18 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-0 border-r border-slate-200 text-center">
-                        <div className="w-8 h-8 rounded-full bg-slate-300 mx-auto overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 ring-blue-400 transition-all">
+                      <td className="px-4 py-0 border-r border-slate-200 text-center relative group/avatar">
+                        <div 
+                          onClick={() => {
+                            const email = prompt('Digite o e-mail do membro que deseja atribuir a esta tarefa (ou deixe em branco para remover):');
+                            if (email !== null) {
+                              // Na versão final isso buscaria o ID do usuário pelo e-mail
+                              alert(`Convite enviado para ${email}! (Funcionalidade visual)`);
+                            }
+                          }}
+                          className="w-8 h-8 rounded-full bg-slate-300 mx-auto overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 ring-blue-400 transition-all"
+                          title="Atribuir responsável"
+                        >
                           <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} alt="avatar" className="w-full h-full object-cover" />
                         </div>
                       </td>
@@ -266,6 +276,24 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     <div className="w-full h-full relative">
       <div className="w-full pb-32 pt-6">
         {groupsToRender.map(groupName => renderGroup(groupName, groupedTasks[groupName] || []))}
+        
+        <div className="px-8 mt-6">
+          <button 
+            onClick={async () => {
+              const name = prompt('Nome do novo grupo:');
+              if (name) {
+                // Insere uma tarefa invisível ou template para forçar a criação do grupo no motor de visões
+                const { error } = await supabase.from('tasks').insert([
+                  { title: 'Nova Tarefa', board_id: boardId, group_name: name, position: 1 }
+                ]);
+                if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded-md transition-all font-medium text-sm bg-white shadow-sm"
+          >
+            <PlusCircle className="w-4 h-4" /> Adicionar novo grupo
+          </button>
+        </div>
       </div>
 
       {/* Floating Action Bar (Múltiplas Seleções) */}
