@@ -32,17 +32,20 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Se o usuário não estiver logado e estiver tentando acessar uma página protegida (ex: /boards)
-  if (!user && request.nextUrl.pathname.startsWith('/boards')) {
+  // Rotas públicas que não precisam de login
+  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/api') || request.nextUrl.pathname.startsWith('/_next') || request.nextUrl.pathname === '/favicon.ico';
+
+  // Se o usuário não estiver logado e estiver tentando acessar qualquer tela que NÃO seja o login
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Se o usuário JÁ estiver logado e tentar acessar a tela de /login, manda ele de volta pros boards
+  // Se o usuário JÁ estiver logado e tentar acessar a tela de /login, manda ele pra raiz (para redirecionar pro quadro certo)
   if (user && request.nextUrl.pathname.startsWith('/login')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/boards/1'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
