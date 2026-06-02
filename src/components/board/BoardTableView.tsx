@@ -35,6 +35,38 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
+  const [newUpdateText, setNewUpdateText] = useState('');
+
+  const { data: taskUpdates, refetch: refetchUpdates } = useQuery({
+    queryKey: ['task_updates', taskDetailsOpen?.id],
+    queryFn: async () => {
+      if (!taskDetailsOpen?.id) return [];
+      const { data, error } = await supabase
+        .from('task_updates')
+        .select('*')
+        .eq('task_id', taskDetailsOpen.id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error("Tabela task_updates ainda não existe ou erro:", error);
+        return [];
+      }
+      return data;
+    },
+    enabled: !!taskDetailsOpen?.id
+  });
+
+  const postUpdate = async () => {
+    if (!newUpdateText.trim() || !taskDetailsOpen) return;
+    const { error } = await supabase.from('task_updates').insert([
+      { task_id: taskDetailsOpen.id, content: newUpdateText }
+    ]);
+    if (!error) {
+      setNewUpdateText('');
+      refetchUpdates();
+    } else {
+      alert("A tabela 'task_updates' ainda não foi criada no Supabase! Rode o SQL.");
+    }
+  };
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
@@ -380,6 +412,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   <button className="hover:text-slate-700"><Paperclip className="w-4 h-4" /></button>
                 </div>
                 <textarea 
+                  value={newUpdateText}
+                  onChange={(e) => setNewUpdateText(e.target.value)}
                   placeholder="Escreva uma atualização..." 
                   className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
                 ></textarea>
@@ -388,22 +422,43 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded"><span className="text-xs font-bold">@</span></button>
                     <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded text-xs">GIF</button>
                   </div>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors">
+                  <button 
+                    onClick={postUpdate}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                  >
                     Atualizar
                   </button>
                 </div>
               </div>
 
-              <div className="flex flex-col items-center justify-center text-center mt-12 text-slate-400">
-                <div className="w-32 h-32 mb-4 opacity-50 relative">
-                   {/* Placeholder para a imagem de empty state do monday */}
-                   <div className="absolute inset-0 bg-blue-100 rounded-2xl flex items-center justify-center">
-                     <MessageSquare className="w-12 h-12 text-blue-300" />
-                   </div>
+              {taskUpdates && taskUpdates.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {taskUpdates.map((update: any) => (
+                    <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                          U
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800">Usuário</h4>
+                          <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{update.content}</p>
+                    </div>
+                  ))}
                 </div>
-                <h3 className="text-slate-800 font-bold text-lg mb-1">Nenhuma atualização ainda</h3>
-                <p className="text-sm max-w-xs">Compartilhe o progresso, mencione um colega ou carregue um arquivo para dar andamento às coisas.</p>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center mt-12 text-slate-400">
+                  <div className="w-32 h-32 mb-4 opacity-50 relative">
+                     <div className="absolute inset-0 bg-blue-100 rounded-2xl flex items-center justify-center">
+                       <MessageSquare className="w-12 h-12 text-blue-300" />
+                     </div>
+                  </div>
+                  <h3 className="text-slate-800 font-bold text-lg mb-1">Nenhuma atualização ainda</h3>
+                  <p className="text-sm max-w-xs">Compartilhe o progresso, mencione um colega ou carregue um arquivo para dar andamento às coisas.</p>
+                </div>
+              )}
             </div>
           </div>
         </>

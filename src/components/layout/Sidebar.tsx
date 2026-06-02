@@ -15,21 +15,32 @@ export function Sidebar() {
     }
   });
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['current_user'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    }
+  });
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/login';
   };
+
+  const initial = userProfile?.email ? userProfile.email.charAt(0).toUpperCase() : 'U';
+  const displayName = userProfile?.email ? userProfile.email.split('@')[0] : 'Usuário';
 
   return (
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col z-10 hidden md:flex shrink-0">
       <div className="p-4 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-orange-500 text-white flex items-center justify-center font-bold">
-            A
+            {initial}
           </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-[14px] leading-tight">Minha Equipe</h3>
-            <span className="text-xs text-slate-500">Plano Pro</span>
+          <div className="flex-1 overflow-hidden">
+            <h3 className="font-bold text-[14px] leading-tight truncate">{displayName}</h3>
+            <span className="text-xs text-slate-500">Workspace</span>
           </div>
         </div>
         <button 
