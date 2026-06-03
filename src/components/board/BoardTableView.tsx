@@ -150,7 +150,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
       // Descobre se é imagem para mostrar preview
       const isImage = file.type.startsWith('image/');
-      const content = `📁 **Arquivo anexado:** [${file.name}](${publicUrl})\n${isImage ? `\n![${file.name}](${publicUrl})` : ''}`;
+      const content = isImage ? `![${file.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${file.name}](${publicUrl})`;
 
       const { error: dbError } = await supabase.from('task_updates').insert([
         { 
@@ -168,6 +168,27 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       console.error(err);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const deleteUpdate = async (updateId: string, content: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta atualização?')) return;
+    
+    // Tenta apagar o arquivo do Storage caso seja um anexo
+    const urlMatch = content.match(/\]\((https:\/\/[^)]+)\)/);
+    if (urlMatch) {
+      const fullUrl = urlMatch[1];
+      const urlParts = fullUrl.split('/attachments/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('attachments').remove([filePath]);
+      }
+    }
+
+    const { error } = await supabase.from('task_updates').delete().eq('id', updateId);
+    if (!error) {
+      refetchUpdates();
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
     }
   };
 
@@ -701,7 +722,16 @@ export function BoardTableView({ boardId }: { boardId: string }) {
               {taskUpdates && taskUpdates.length > 0 ? (
                 <div className="flex flex-col gap-4">
                   {taskUpdates.map((update: any) => (
-                    <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative group/update">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover/update:opacity-100 transition-opacity flex gap-2">
+                         <button 
+                            onClick={() => deleteUpdate(update.id, update.content)} 
+                            className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" 
+                            title="Excluir"
+                         >
+                            <Trash2 className="w-4 h-4" />
+                         </button>
+                      </div>
                       <div className="flex items-center gap-3 mb-3">
                         {update.author_email ? (
                           <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${update.author_email}`} className="w-8 h-8 rounded-full border border-slate-200" />
