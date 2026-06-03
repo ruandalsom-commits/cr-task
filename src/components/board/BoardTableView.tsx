@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { StatusCell } from './StatusCell';
-import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal, MessageCirclePlus, AlertCircle, CheckCircle2, Search, UserPlus, Sparkles } from 'lucide-react';
+import { PriorityCell } from './PriorityCell';
+import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal, MessageCirclePlus, AlertCircle, CheckCircle2, Search, UserPlus, Sparkles, FileText } from 'lucide-react';
 
 const TimelineBar = ({ progress, color }: { progress: number, color: string }) => (
   <div className="flex items-center w-full">
@@ -186,13 +187,14 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 <tr className="border-b border-slate-200 text-[#676879] text-[14px]">
                   <th className="w-2 p-0"></th>
                   <th className="w-10 text-center p-0 border-r border-slate-200"></th>
-                  <th className="font-normal px-4 py-2 border-r border-slate-200" style={{ width: '35%' }}></th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200" style={{ width: '40%', minWidth: '350px' }}></th>
                   <th className="w-14 border-r border-slate-200"></th>
-                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-28 text-center">Responsável</th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-32 text-center">Responsável</th>
                   <th className="font-normal px-0 py-0 border-r border-slate-200 w-40 text-center">Status</th>
                   <th className="font-normal px-4 py-2 border-r border-slate-200 w-48 text-center">Timeline</th>
                   <th className="font-normal px-4 py-2 border-r border-slate-200 w-32 text-center">Prazo</th>
-                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-36 text-center">Prioridade</th>
+                  <th className="font-normal px-0 py-0 border-r border-slate-200 w-40 text-center">Prioridade</th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-32 text-center">Arquivos</th>
                   <th className="w-10 text-center p-0"></th>
                 </tr>
               </thead>
@@ -233,16 +235,22 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                         </div>
                       </td>
                       <td className="border-r border-slate-200 text-center relative hover:bg-slate-50 transition-colors">
-                        <div className="absolute inset-0 flex items-center justify-center cursor-pointer" onClick={() => setTaskDetailsOpen(task)}>
-                          <div className="relative group/chat">
+                        <div className="absolute inset-0 flex items-center justify-center cursor-pointer group/chat" onClick={() => setTaskDetailsOpen(task)}>
+                          <div className="relative">
                             <MessageCirclePlus className="w-5 h-5 text-slate-300 group-hover/chat:text-blue-500 stroke-[1.5] transition-colors" />
-                            {/* Simulador de contador para visual: se tiver comentários no futuro, mostrar o badge azul */}
+                            {/* Simulação de notificação: Badge azul com count se existir updates_count na DB */}
+                            {task.updates_count > 0 && (
+                              <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                                <span className="text-[10px] text-white font-bold leading-none">{task.updates_count}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-0 border-r border-slate-200 text-center relative">
+                      <td className="px-4 py-0 border-r border-slate-200 text-center relative group/assignee">
                         <div 
                           onClick={() => setAssigneePopoverOpen(assigneePopoverOpen === task.id ? null : task.id)}
+                          title={task.assignee_email || 'Atribuir responsável'}
                           className={`w-8 h-8 rounded-full mx-auto overflow-hidden border cursor-pointer transition-all flex items-center justify-center ${task.assignee_email ? 'border-slate-200 hover:ring-2 ring-blue-400' : 'bg-slate-100 border-dashed border-slate-300 hover:bg-slate-200'}`}
                         >
                           {task.assignee_email ? (
@@ -251,6 +259,14 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                             <UserPlus className="w-4 h-4 text-slate-400" />
                           )}
                         </div>
+                        
+                        {/* Hover Tooltip simplificado */}
+                        {task.assignee_email && assigneePopoverOpen !== task.id && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/assignee:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                            {task.assignee_email}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                          </div>
+                        )}
                         
                         {/* Popover de Responsável */}
                         {assigneePopoverOpen === task.id && (
@@ -315,17 +331,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           color={task.status === 'Feito' ? 'bg-[#00c875]' : task.status === 'Trabalhando' ? 'bg-[#fdab3d]' : 'bg-[#579bfc]'} 
                         />
                       </td>
-                      <td className="p-0 border-r border-slate-200 text-center relative group/date cursor-pointer">
-                        <div className="absolute inset-0 z-10 w-full h-full opacity-0 cursor-pointer overflow-hidden">
-                           <input 
-                             type="date" 
-                             defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
-                             onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
-                             className="w-full h-full cursor-pointer"
-                             style={{ minHeight: '40px' }}
-                           />
-                        </div>
-                        <div className="flex items-center justify-center gap-2 h-full w-full pointer-events-none group-hover/date:bg-slate-100 transition-colors">
+                      <td className="p-0 border-r border-slate-200 text-center relative group/date h-full">
+                        <div className="flex items-center justify-center gap-2 h-[42px] w-full group-hover/date:bg-slate-100 transition-colors relative cursor-pointer">
                            {getDueStatus(task.due_date, task.status) === 'overdue' && (
                              <AlertCircle className="w-4 h-4 text-red-500 fill-red-50 stroke-red-500" />
                            )}
@@ -335,16 +342,21 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                            <span className={`text-[13px] ${getDueStatus(task.due_date, task.status) === 'overdue' ? 'text-red-500 font-medium' : 'text-[#323338]'}`}>
                              {formatDate(task.due_date) || '-'}
                            </span>
+                           <input 
+                             type="date" 
+                             defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
+                             onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
+                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 block"
+                           />
                         </div>
                       </td>
-                      <td className="px-4 py-0 border-r border-slate-200 text-center">
-                        <PriorityStars 
-                          rating={task.priority === 'Alta' ? 5 : task.priority === 'Baixa' ? 2 : 4} 
-                          onChange={(rating) => {
-                            const newPriority = rating === 5 ? 'Alta' : rating <= 2 ? 'Baixa' : 'Média';
-                            updateTask.mutate({ id: task.id, updates: { priority: newPriority } });
-                          }}
-                        />
+                      <td className="p-0 border-r border-slate-200 text-center">
+                        <PriorityCell task={task} />
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200 text-center hover:bg-slate-50 cursor-pointer">
+                        <div className="flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-slate-400 hover:text-blue-500" />
+                        </div>
                       </td>
                       <td className="w-10 text-center p-0"></td>
                     </tr>
@@ -361,7 +373,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 <tr className="hover:bg-[#f5f6f8] transition-colors h-[42px]">
                   <td className="w-2 p-0 bg-transparent border-l-[3px] border-transparent group-hover:border-l-slate-300"></td>
                   <td className="w-10 border-r border-slate-200 bg-[#f5f6f8]"></td>
-                  <td colSpan={8} className="px-4 py-0">
+                  <td colSpan={9} className="px-4 py-0">
                     <input 
                       type="text" 
                       placeholder="+ Adicionar Item" 
