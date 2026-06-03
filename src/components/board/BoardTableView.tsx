@@ -129,6 +129,48 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     }
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileUpload = async (file: File, taskId: string) => {
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${taskId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, file);
+
+      if (uploadError) {
+        alert("Erro no upload: Você criou o bucket 'attachments' e deu permissão pública no Supabase? (Veja o SQL)");
+        console.error(uploadError);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
+
+      // Descobre se é imagem para mostrar preview
+      const isImage = file.type.startsWith('image/');
+      const content = `📁 **Arquivo anexado:** [${file.name}](${publicUrl})\n${isImage ? `\n![${file.name}](${publicUrl})` : ''}`;
+
+      const { error: dbError } = await supabase.from('task_updates').insert([
+        { 
+          task_id: taskId, 
+          content: content,
+          author_email: userProfile?.email || 'Usuário'
+        }
+      ]);
+
+      if (!dbError) {
+        refetchUpdates();
+        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
     queryFn: async () => {
@@ -349,7 +391,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                             onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              alert("O arquivo '" + file.name + "' foi selecionado no quadro! Para o upload funcionar 100%, você precisa criar o bucket 'attachments' no Supabase Storage.");
+                              await handleFileUpload(file, task.id);
                             }}
                           />
                         </label>
@@ -631,7 +673,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        alert("O arquivo '" + file.name + "' foi selecionado na atualização! Crie o bucket 'attachments' no Supabase Storage para habilitar o upload.");
+                        await handleFileUpload(file, taskDetailsOpen.id);
                       }}
                     />
                   </label>
@@ -709,7 +751,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        alert("O arquivo '" + file.name + "' foi selecionado! Para funcionar na nuvem, você precisa criar o bucket 'attachments' no Supabase Storage.");
+                        await handleFileUpload(file, taskDetailsOpen.id);
+                        setDrawerTab('updates'); // Volta para aba de atualizações para ver o arquivo
                       }}
                     />
                   </label>
