@@ -39,6 +39,13 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const [assigneePopoverOpen, setAssigneePopoverOpen] = useState<string | null>(null);
   const [newUpdateText, setNewUpdateText] = useState('');
 
+  // Filtros
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [filterPriority, setFilterPriority] = useState<string | null>(null);
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -149,7 +156,14 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     );
   }
 
-  const groupedTasks = tasks?.reduce((acc: any, task: any) => {
+  const filteredTasks = tasks?.filter((task: any) => {
+    if (filterStatus && task.status !== filterStatus) return false;
+    if (filterPriority && task.priority !== filterPriority) return false;
+    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  const groupedTasks = filteredTasks?.reduce((acc: any, task: any) => {
     const groupName = task.group_name || 'Este mês';
     if (!acc[groupName]) acc[groupName] = [];
     acc[groupName].push(task);
@@ -425,8 +439,74 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   };
 
   return (
-    <div className="w-full h-full relative">
-      <div className="flex-1 overflow-y-auto overflow-x-auto pb-24">
+    <div className="w-full h-full relative flex flex-col">
+      {/* Toolbar */}
+      <div className="px-8 py-4 flex items-center gap-4 border-b border-slate-200 bg-white shrink-0">
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[14px] font-medium transition-colors shadow-sm">
+          Novo Item
+        </button>
+        
+        <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Pesquisar..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-4 py-1.5 rounded-full border border-slate-200 bg-white text-[14px] focus:outline-none focus:border-blue-400 transition-colors w-64 shadow-sm"
+          />
+        </div>
+
+        <div className="relative">
+          <button 
+            onClick={() => { setStatusFilterOpen(!statusFilterOpen); setPriorityFilterOpen(false); }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[14px] transition-colors shadow-sm ${filterStatus ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >
+            Status {filterStatus && `: ${filterStatus}`}
+          </button>
+          {statusFilterOpen && (
+            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl p-2 z-50">
+              <div className="text-xs font-bold text-slate-400 mb-2 px-2">Filtrar por Status</div>
+              {['Feito', 'Trabalhando', 'Travado', 'Pendente'].map(status => (
+                <button 
+                  key={status}
+                  onClick={() => { setFilterStatus(filterStatus === status ? null : status); setStatusFilterOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 flex items-center justify-between"
+                >
+                  {status} {filterStatus === status && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <button 
+            onClick={() => { setPriorityFilterOpen(!priorityFilterOpen); setStatusFilterOpen(false); }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[14px] transition-colors shadow-sm ${filterPriority ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >
+            Prioridade {filterPriority && `: ${filterPriority}`}
+          </button>
+          {priorityFilterOpen && (
+            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl p-2 z-50">
+              <div className="text-xs font-bold text-slate-400 mb-2 px-2">Filtrar por Prioridade</div>
+              {['Alta', 'Média', 'Baixa', 'Vazio'].map(priority => (
+                <button 
+                  key={priority}
+                  onClick={() => { setFilterPriority(filterPriority === priority ? null : priority); setPriorityFilterOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 flex items-center justify-between"
+                >
+                  {priority} {filterPriority === priority && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto overflow-x-auto pb-24 pt-6">
         <div className="min-w-[1300px] w-full">
           {groupsToRender.map(groupName => renderGroup(groupName, groupedTasks[groupName] || []))}
           
