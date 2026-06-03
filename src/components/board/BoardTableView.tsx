@@ -235,6 +235,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       if (error) throw error;
       return data;
     },
+    refetchInterval: 3000
   });
 
   const deleteTask = useMutation({

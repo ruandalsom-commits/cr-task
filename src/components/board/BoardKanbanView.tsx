@@ -37,6 +37,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
       if (error) throw error;
       return data;
     },
+    refetchInterval: 3000
   });
 
   // Estado local para otimizar o drag & drop
@@ -73,8 +74,8 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   };
 
   useEffect(() => {
-    if (rawTasks) setTasks(rawTasks);
-  }, [rawTasks]);
+    if (rawTasks && !activeId) setTasks(rawTasks);
+  }, [rawTasks, activeId]);
 
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => {
