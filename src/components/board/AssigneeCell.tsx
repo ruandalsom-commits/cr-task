@@ -176,7 +176,8 @@ export function AssigneeCell({ task }: { task: any }) {
               Convide um novo membro por e-mail
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
