@@ -206,13 +206,20 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     
     // Registra a exclusão no Log de Atividades
     const isAttachment = urlMatch !== null;
-    await supabase.from('activity_logs').insert([{
+    const { error: actError } = await supabase.from('activity_logs').insert([{
       task_id: taskDetailsOpen.id,
       user_email: userProfile?.email || 'Usuário',
       action: isAttachment ? 'excluiu um anexo' : 'excluiu um comentário'
     }]);
 
-    if (!error) {
+    if (actError) {
+      console.error("Erro ao inserir no activity_logs:", actError);
+    }
+
+    if (error) {
+      alert("Erro ao excluir: " + error.message);
+      console.error("Erro na exclusão:", error);
+    } else {
       refetchUpdates();
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
       // Invalida também a aba de atividades se for criada uma query própria
