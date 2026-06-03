@@ -169,8 +169,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     const colors = getGroupColor(title);
     
     return (
-      <div key={title} className="mb-10">
-        <div className="flex items-center gap-2 mb-3 px-8">
+      <div key={title} className="mb-8 mt-2">
+        <div className="flex items-center gap-2 mb-1 px-8">
           <button className={`hover:opacity-80 transition-colors ${colors.text}`}>
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 transform">
               <path d="M7 10l5 5 5-5z" />
@@ -216,7 +216,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   groupTasks.map((task) => (
                     <tr key={task.id} className={`group/row border-b border-slate-200 transition-colors h-[42px] ${selectedTasks.includes(task.id) ? 'bg-blue-50/50' : 'hover:bg-[#f5f6f8]'}`}>
                       <td className="w-2 p-0" style={{ backgroundColor: colors.bg }}></td>
-                      <td className="w-10 text-center p-0 border-r border-slate-200 relative bg-[#f5f6f8]">
+                      <td className="w-10 text-center p-0 border-r border-slate-200 relative bg-transparent">
                         <input 
                           type="checkbox" 
                           checked={selectedTasks.includes(task.id)}
@@ -236,7 +236,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                             }}
                             className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text"
                           />
-                          <div className="flex items-center gap-1 bg-[#f5f6f8] px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
+                          <div className="flex items-center gap-1 bg-transparent px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
                             <button 
                               onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
                               className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors"
@@ -388,7 +388,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 {/* Linha de Adicionar Item */}
                 <tr className="hover:bg-[#f5f6f8] transition-colors h-[42px]">
                   <td className="w-2 p-0 bg-transparent border-l-[3px] border-transparent group-hover:border-l-slate-300"></td>
-                  <td className="w-10 border-r border-slate-200 bg-[#f5f6f8]"></td>
+                  <td className="w-10 border-r border-slate-200 bg-transparent"></td>
                   <td colSpan={9} className="px-4 py-0">
                     <input 
                       type="text" 
