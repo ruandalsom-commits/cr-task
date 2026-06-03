@@ -89,6 +89,22 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     refetchInterval: 2000 // Polling a cada 2s para simular realtime nos comentários
   });
 
+  const { data: activityLogs } = useQuery({
+    queryKey: ['activity_logs', taskDetailsOpen?.id],
+    queryFn: async () => {
+      if (!taskDetailsOpen?.id) return [];
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('task_id', taskDetailsOpen.id)
+        .order('created_at', { ascending: false });
+      if (error) return [];
+      return data;
+    },
+    enabled: !!taskDetailsOpen?.id,
+    refetchInterval: 2000
+  });
+
   const { data: userProfile } = useQuery({
     queryKey: ['current_user'],
     queryFn: async () => {
@@ -187,9 +203,20 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     }
 
     const { error } = await supabase.from('task_updates').delete().eq('id', updateId);
+    
+    // Registra a exclusão no Log de Atividades
+    const isAttachment = urlMatch !== null;
+    await supabase.from('activity_logs').insert([{
+      task_id: taskDetailsOpen.id,
+      user_email: userProfile?.email || 'Usuário',
+      action: isAttachment ? 'excluiu um anexo' : 'excluiu um comentário'
+    }]);
+
     if (!error) {
       refetchUpdates();
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      // Invalida também a aba de atividades se for criada uma query própria
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', taskDetailsOpen.id] });
     }
   };
 
@@ -834,18 +861,27 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 <div className="flex flex-col gap-0 relative">
                   <div className="absolute left-4 top-4 bottom-4 w-px bg-slate-200"></div>
                   
-                  {taskUpdates && taskUpdates.length > 0 ? taskUpdates.map((update: any) => (
-                    <div key={'act-'+update.id} className="relative pl-12 py-4">
-                      <div className="absolute left-3 top-5 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white shadow-sm"></div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-sm text-slate-800">{update.author_email ? update.author_email.split('@')[0] : 'Usuário'}</span>
-                        <span className="text-sm text-slate-500">adicionou um comentário</span>
+                  {(() => {
+                    const combinedActivity = [
+                      ...(taskUpdates || []).map((u: any) => ({ id: 'u-'+u.id, email: u.author_email, action: u.content.includes('![') ? 'anexou uma imagem' : 'adicionou um comentário', date: u.created_at, color: 'bg-blue-500' })),
+                      ...(activityLogs || []).map((l: any) => ({ id: 'l-'+l.id, email: l.user_email, action: l.action, date: l.created_at, color: 'bg-red-500' }))
+                    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                    if (combinedActivity.length === 0) {
+                      return <div className="text-center mt-8 text-slate-400 text-sm">Nenhuma atividade recente.</div>;
+                    }
+
+                    return combinedActivity.map((item: any) => (
+                      <div key={item.id} className="relative pl-12 py-4">
+                        <div className={`absolute left-3 top-5 w-2.5 h-2.5 rounded-full ${item.color} border-2 border-white shadow-sm`}></div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-sm text-slate-800">{item.email ? item.email.split('@')[0] : 'Usuário'}</span>
+                          <span className="text-sm text-slate-500">{item.action}</span>
+                        </div>
+                        <span className="text-xs text-slate-400">{new Date(item.date).toLocaleString()}</span>
                       </div>
-                      <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
-                    </div>
-                  )) : (
-                    <div className="text-center mt-8 text-slate-400 text-sm">Nenhuma atividade recente.</div>
-                  )}
+                    ));
+                  })()}
                   
                   <div className="relative pl-12 py-4">
                     <div className="absolute left-3 top-5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
