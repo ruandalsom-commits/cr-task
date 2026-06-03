@@ -85,7 +85,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       }
       return data;
     },
-    enabled: !!taskDetailsOpen?.id
+    enabled: !!taskDetailsOpen?.id,
+    refetchInterval: 2000 // Polling a cada 2s para simular realtime nos comentários
   });
 
   const { data: userProfile } = useQuery({
@@ -149,7 +150,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
 
       // Descobre se é imagem para mostrar preview
-      const isImage = file.type.startsWith('image/');
+      const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
       const content = isImage ? `![${file.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${file.name}](${publicUrl})`;
 
       const { error: dbError } = await supabase.from('task_updates').insert([
@@ -699,12 +700,21 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     />
                   </label>
                 </div>
-                <textarea 
-                  value={newUpdateText}
-                  onChange={(e) => setNewUpdateText(e.target.value)}
-                  placeholder="Escreva uma atualização..." 
-                  className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
-                ></textarea>
+                <div className="relative">
+                  <textarea 
+                    value={newUpdateText}
+                    onChange={(e) => setNewUpdateText(e.target.value)}
+                    placeholder="Escreva uma atualização..." 
+                    className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
+                    disabled={isUploading}
+                  ></textarea>
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-white/50 flex flex-col items-center justify-center gap-2 rounded">
+                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-blue-600">Enviando anexo...</span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex gap-2">
                     <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded"><span className="text-xs font-bold">@</span></button>
@@ -712,9 +722,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   </div>
                   <button 
                     onClick={postUpdate}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                    disabled={isUploading}
+                    className={`${isUploading ? 'bg-slate-300' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-2`}
                   >
-                    Atualizar
+                    {isUploading ? 'Aguarde...' : 'Atualizar'}
                   </button>
                 </div>
               </div>
