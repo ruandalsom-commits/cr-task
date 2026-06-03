@@ -181,6 +181,19 @@ export function BoardTableView({ boardId }: { boardId: string }) {
         </div>
 
         <div className="px-8">
+          <style dangerouslySetInnerHTML={{ __html: `
+            .date-hack::-webkit-calendar-picker-indicator {
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              width: 100%;
+              height: 100%;
+              opacity: 0;
+              cursor: pointer;
+            }
+          `}} />
           <div className="bg-white border-y border-slate-200 rounded-tl-md relative overflow-x-auto overflow-y-visible">
             <table className="w-full text-left border-collapse min-w-[1300px]" style={{ tableLayout: 'fixed' }}>
               <thead>
@@ -332,39 +345,33 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                         />
                       </td>
                       <td className="p-0 border-r border-slate-200 text-center relative group/date h-full">
-                        <div 
-                          className="flex items-center justify-center gap-2 h-[42px] w-full group-hover/date:bg-slate-100 transition-colors relative cursor-pointer"
-                          onClick={(e) => {
-                            const input = e.currentTarget.querySelector('input');
-                            if (input && typeof input.showPicker === 'function') {
-                              try { input.showPicker(); } catch (err) {}
-                            }
-                          }}
-                        >
-                           {getDueStatus(task.due_date, task.status) === 'overdue' && (
+                        <div className="flex items-center justify-center gap-2 h-[42px] w-full group-hover/date:bg-slate-100 transition-colors relative cursor-pointer">
+                           {getDueStatus(task.due_date, task.status) === 'overdue' && task.status !== 'Feito' && (
                              <AlertCircle className="w-4 h-4 text-red-500 fill-red-50 stroke-red-500" />
                            )}
                            {getDueStatus(task.due_date, task.status) === 'done' && (
                              <CheckCircle2 className="w-4 h-4 text-green-500" />
                            )}
-                           <span className={`text-[13px] ${getDueStatus(task.due_date, task.status) === 'overdue' ? 'text-red-500 font-medium' : 'text-[#323338]'}`}>
+                           <span className={`text-[13px] ${getDueStatus(task.due_date, task.status) === 'overdue' && task.status !== 'Feito' ? 'text-red-500 font-medium' : 'text-[#323338]'} ${task.status === 'Feito' ? 'line-through text-slate-400' : ''}`}>
                              {formatDate(task.due_date) || '-'}
                            </span>
                            <input 
                              type="date" 
                              defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
                              onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
-                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                             onClick={(e) => e.stopPropagation()}
+                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 date-hack"
                            />
                         </div>
                       </td>
                       <td className="p-0 border-r border-slate-200 text-center">
                         <PriorityCell task={task} />
                       </td>
-                      <td className="px-4 py-0 border-r border-slate-200 text-center hover:bg-slate-50 cursor-pointer">
-                        <div className="flex items-center justify-center">
-                          <FileText className="w-4 h-4 text-slate-400 hover:text-blue-500" />
+                      <td className="px-4 py-0 border-r border-slate-200 text-center hover:bg-slate-50 cursor-pointer group/file relative h-full">
+                        <div className="flex items-center justify-center h-[42px] w-full">
+                          <div className="flex items-center gap-1 text-slate-400 group-hover/file:bg-slate-200 px-2 py-1 rounded transition-colors">
+                            <span className="text-lg leading-none opacity-0 group-hover/file:opacity-100 absolute left-8">+</span>
+                            <FileText className="w-[18px] h-[18px] group-hover/file:text-slate-600" />
+                          </div>
                         </div>
                       </td>
                       <td className="w-10 text-center p-0"></td>
