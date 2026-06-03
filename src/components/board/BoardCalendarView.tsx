@@ -15,6 +15,12 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [creatingTaskDate, setCreatingTaskDate] = useState<Date | null>(null);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [viewType, setViewType] = useState<'Mês' | 'Semana'>('Mês');
+  const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
 
   // Busca de Tarefas
   const { data: rawTasks } = useQuery({
@@ -45,6 +51,32 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       }
     }
   }, [rawTasks]);
+
+  const createTask = useMutation({
+    mutationFn: async (title: string) => {
+      const { data, error } = await supabase.from('tasks').insert([
+        { 
+          board_id: boardId,
+          title,
+          group_name: 'Este mês',
+          status: 'Pendente',
+          due_date: creatingTaskDate?.toISOString().split('T')[0]
+        }
+      ]).select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      setCreatingTaskDate(null);
+      setNewTaskTitle('');
+    }
+  });
+
+  const filteredTasks = rawTasks?.filter((task: any) => {
+    if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  }) || [];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -88,6 +120,17 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+  let daysToRender = calendarDays;
+  if (viewType === 'Semana') {
+     const index = calendarDays.findIndex(d => d.date.getDate() === currentDate.getDate() && d.date.getMonth() === currentDate.getMonth());
+     if (index !== -1) {
+       const weekStart = Math.floor(index / 7) * 7;
+       daysToRender = calendarDays.slice(weekStart, Math.min(weekStart + 7, calendarDays.length));
+     } else {
+       daysToRender = calendarDays.slice(0, 7);
+     }
+  }
+
   // Lógica da Gaveta Simplificada (somente exibição, como o usuário não pediu para recriar toda a tabela)
   // Mas como a gente combinou que a gaveta ia ser a mesma, vamos renderizar pelo menos os comentários
   const { data: taskUpdates, refetch: refetchUpdates } = useQuery({
@@ -126,6 +169,14 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
            d.getFullYear() === today.getFullYear();
   };
 
+  const updateTaskDate = useMutation({
+    mutationFn: async ({ id, date }: { id: string, date: string }) => {
+      const { error } = await supabase.from('tasks').update({ due_date: date }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', boardId] })
+  });
+
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Toolbar do Calendário */}
@@ -136,12 +187,16 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M6 9l6 6 6-6"/></svg>
            </button>
         </div>
-        <button className="h-8 px-3 border border-slate-200 hover:bg-slate-50 rounded flex items-center gap-2 text-slate-700 text-sm font-medium transition-colors">
-          + Adicionar ferramenta
-        </button>
-        <div className="h-8 flex items-center border border-slate-200 rounded px-3 w-48 focus-within:border-blue-500 transition-colors group">
+        
+        <div className="h-8 flex items-center border border-slate-200 rounded px-3 w-48 focus-within:border-blue-500 transition-colors group bg-white">
           <Search className="w-4 h-4 text-slate-400 group-focus-within:text-blue-500" />
-          <input type="text" placeholder="Pesquisar..." className="w-full h-full outline-none px-2 text-sm text-slate-700" />
+          <input 
+            type="text" 
+            placeholder="Pesquisar..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-full outline-none px-2 text-sm text-slate-700" 
+          />
         </div>
         <button className="h-8 px-3 hover:bg-slate-100 rounded flex items-center gap-2 text-slate-600 text-sm transition-colors">
           <User className="w-4 h-4" /> Pessoa
@@ -163,9 +218,25 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
-        <div className="h-8 flex items-center gap-2 px-2 hover:bg-slate-100 rounded cursor-pointer transition-colors">
+        
+        <div className="relative">
+          <div 
+            onClick={() => setViewDropdownOpen(!viewDropdownOpen)}
+            className="h-8 flex items-center gap-2 px-3 border border-slate-200 hover:bg-slate-50 rounded cursor-pointer transition-colors"
+          >
+            <span className="text-slate-800 text-[14px] font-medium">{viewType}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-slate-500"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          {viewDropdownOpen && (
+            <div className="absolute top-full right-0 mt-1 w-32 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50">
+              <button onClick={() => { setViewType('Mês'); setViewDropdownOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-slate-700 font-medium">Mês</button>
+              <button onClick={() => { setViewType('Semana'); setViewDropdownOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-slate-700 font-medium">Semana</button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
           <span className="text-slate-800 text-[15px] font-medium">{monthNames[month]} {year}</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-slate-500"><path d="M6 9l6 6 6-6"/></svg>
         </div>
       </div>
 
@@ -180,11 +251,11 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           ))}
         </div>
         
-        {/* Dias do Mês */}
-        <div className="flex-1 grid grid-cols-7 grid-rows-6">
-          {calendarDays.map((dayObj, i) => {
+        {/* Dias do Mês/Semana */}
+        <div className={`flex-1 grid grid-cols-7 ${viewType === 'Mês' ? 'grid-rows-6' : 'grid-rows-1'}`}>
+          {daysToRender.map((dayObj, i) => {
             const dateString = dayObj.date.toISOString().split('T')[0];
-            const tasksOnThisDay = rawTasks?.filter((t: any) => t.due_date && t.due_date.startsWith(dateString)) || [];
+            const tasksOnThisDay = filteredTasks?.filter((t: any) => t.due_date && t.due_date.startsWith(dateString)) || [];
 
             return (
               <div 
@@ -197,7 +268,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 relative z-10">
+                <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 relative z-10 pb-6">
                   {tasksOnThisDay.map((task: any) => {
                     const bgColor = STATUS_COLORS[task.status] || STATUS_COLORS['Pendente'];
                     return (
@@ -212,6 +283,15 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                     );
                   })}
                 </div>
+
+                <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 z-20">
+                   <button 
+                    onClick={() => setCreatingTaskDate(dayObj.date)} 
+                    className="w-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 py-1 rounded transition-colors"
+                  >
+                    + Add
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -224,7 +304,22 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           <div className="fixed inset-0 bg-slate-900/20 z-40" onClick={() => setTaskDetailsOpen(null)}></div>
           <div className="fixed top-0 right-0 h-screen w-[600px] bg-white shadow-2xl z-50 border-l border-slate-200 flex flex-col animate-in slide-in-from-right-full">
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-800">{taskDetailsOpen.title}</h2>
+              <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-bold text-slate-800">{taskDetailsOpen.title}</h2>
+                <div className="flex items-center gap-2 text-slate-500 text-sm mt-1 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 w-fit">
+                   <CalendarIcon className="w-4 h-4" />
+                   <span>Prazo:</span>
+                   <input 
+                     type="date" 
+                     value={taskDetailsOpen.due_date?.split('T')[0] || ''}
+                     onChange={(e) => {
+                       setTaskDetailsOpen({...taskDetailsOpen, due_date: e.target.value});
+                       updateTaskDate.mutate({ id: taskDetailsOpen.id, date: e.target.value });
+                     }}
+                     className="bg-transparent outline-none cursor-pointer hover:text-blue-600 transition-colors text-slate-800 font-medium"
+                   />
+                </div>
+              </div>
               <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
@@ -269,6 +364,54 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                   <p className="text-sm max-w-xs">Nenhuma atualização ainda.</p>
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+      {/* Modal de Criar Tarefa no Dia */}
+      {creatingTaskDate && (
+        <>
+          <div className="fixed inset-0 bg-slate-900/20 z-[60]" onClick={() => setCreatingTaskDate(null)}></div>
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl z-[70] w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-blue-600">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                Criar Tarefa 
+                <span className="text-sm font-normal bg-blue-500 px-2 py-0.5 rounded text-blue-50">
+                  {creatingTaskDate.toLocaleDateString('pt-BR')}
+                </span>
+              </h3>
+              <button onClick={() => setCreatingTaskDate(null)} className="text-blue-200 hover:text-white transition-colors">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Nome da Tarefa</label>
+              <input 
+                type="text" 
+                autoFocus
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newTaskTitle.trim()) {
+                    createTask.mutate(newTaskTitle);
+                  }
+                }}
+                className="w-full border border-slate-200 rounded-lg p-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all text-slate-800"
+                placeholder="Ex: Reunião de alinhamento..."
+              />
+              
+              <div className="mt-8 flex justify-end gap-3">
+                <button onClick={() => setCreatingTaskDate(null)} className="px-4 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+                  Cancelar
+                </button>
+                <button 
+                  disabled={!newTaskTitle.trim() || createTask.isPending}
+                  onClick={() => createTask.mutate(newTaskTitle)} 
+                  className="px-6 py-2 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors"
+                >
+                  {createTask.isPending ? 'Criando...' : 'Criar Tarefa'}
+                </button>
+              </div>
             </div>
           </div>
         </>
