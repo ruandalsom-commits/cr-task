@@ -181,8 +181,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
         </div>
 
         <div className="px-8">
-          <div className="bg-white border-y border-slate-200 rounded-tl-md relative">
-            <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed' }}>
+          <div className="bg-white border-y border-slate-200 rounded-tl-md relative overflow-x-auto overflow-y-visible">
+            <table className="w-full text-left border-collapse min-w-[1300px]" style={{ tableLayout: 'fixed' }}>
               <thead>
                 <tr className="border-b border-slate-200 text-[#676879] text-[14px]">
                   <th className="w-2 p-0"></th>
@@ -332,7 +332,15 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                         />
                       </td>
                       <td className="p-0 border-r border-slate-200 text-center relative group/date h-full">
-                        <div className="flex items-center justify-center gap-2 h-[42px] w-full group-hover/date:bg-slate-100 transition-colors relative cursor-pointer">
+                        <div 
+                          className="flex items-center justify-center gap-2 h-[42px] w-full group-hover/date:bg-slate-100 transition-colors relative cursor-pointer"
+                          onClick={(e) => {
+                            const input = e.currentTarget.querySelector('input');
+                            if (input && typeof input.showPicker === 'function') {
+                              try { input.showPicker(); } catch (err) {}
+                            }
+                          }}
+                        >
                            {getDueStatus(task.due_date, task.status) === 'overdue' && (
                              <AlertCircle className="w-4 h-4 text-red-500 fill-red-50 stroke-red-500" />
                            )}
@@ -346,7 +354,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                              type="date" 
                              defaultValue={task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''}
                              onChange={(e) => updateTask.mutate({ id: task.id, updates: { due_date: e.target.value } })}
-                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 block"
+                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                             onClick={(e) => e.stopPropagation()}
                            />
                         </div>
                       </td>
