@@ -38,6 +38,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
   const [newUpdateText, setNewUpdateText] = useState('');
+  const [drawerTab, setDrawerTab] = useState<'updates' | 'files' | 'activity'>('updates');
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,10 +88,22 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     enabled: !!taskDetailsOpen?.id
   });
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['current_user'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    }
+  });
+
   const postUpdate = async () => {
     if (!newUpdateText.trim() || !taskDetailsOpen) return;
     const { error } = await supabase.from('task_updates').insert([
-      { task_id: taskDetailsOpen.id, content: newUpdateText }
+      { 
+        task_id: taskDetailsOpen.id, 
+        content: newUpdateText,
+        author_email: userProfile?.email || 'Usuário'
+      }
     ]);
     if (!error) {
       setNewUpdateText('');
@@ -325,12 +338,21 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                         <PriorityCell task={task} />
                       </td>
                       <td className="px-4 py-0 border-r border-slate-200 text-center hover:bg-slate-50 cursor-pointer group/file relative h-full">
-                        <div className="flex items-center justify-center h-[42px] w-full">
-                          <div className="flex items-center gap-1 text-slate-400 group-hover/file:bg-slate-200 px-2 py-1 rounded transition-colors">
-                            <span className="text-lg leading-none opacity-0 group-hover/file:opacity-100 absolute left-8">+</span>
+                        <label className="flex items-center justify-center h-[42px] w-full cursor-pointer">
+                          <div className="flex items-center gap-1 text-slate-400 group-hover/file:bg-slate-200 px-2 py-1 rounded transition-colors relative">
+                            <span className="text-lg leading-none opacity-0 group-hover/file:opacity-100 absolute -left-2">+</span>
                             <FileText className="w-[18px] h-[18px] group-hover/file:text-slate-600" />
                           </div>
-                        </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              alert("O arquivo '" + file.name + "' foi selecionado no quadro! Para o upload funcionar 100%, você precisa criar o bucket 'attachments' no Supabase Storage.");
+                            }}
+                          />
+                        </label>
                       </td>
                       <td className="w-10 text-center p-0"></td>
                     </tr>
@@ -572,25 +594,47 @@ export function BoardTableView({ boardId }: { boardId: string }) {
             </div>
 
             <div className="flex gap-6 px-6 border-b border-slate-100 text-sm font-medium text-slate-500 pt-4">
-              <button className="pb-3 border-b-2 border-blue-600 text-blue-600 flex items-center gap-2">
+              <button 
+                onClick={() => setDrawerTab('updates')}
+                className={`pb-3 border-b-2 flex items-center gap-2 ${drawerTab === 'updates' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+              >
                 <MessageSquare className="w-4 h-4" /> Atualizações
               </button>
-              <button className="pb-3 border-b-2 border-transparent hover:text-slate-800 flex items-center gap-2">
+              <button 
+                onClick={() => setDrawerTab('files')}
+                className={`pb-3 border-b-2 flex items-center gap-2 ${drawerTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+              >
                 <Paperclip className="w-4 h-4" /> Arquivos
               </button>
-              <button className="pb-3 border-b-2 border-transparent hover:text-slate-800 flex items-center gap-2">
+              <button 
+                onClick={() => setDrawerTab('activity')}
+                className={`pb-3 border-b-2 flex items-center gap-2 ${drawerTab === 'activity' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+              >
                 <Activity className="w-4 h-4" /> Log de atividade
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-8">
-                <div className="flex items-center gap-4 text-slate-400 border-b border-slate-100 pb-3 mb-3 text-sm">
+              {drawerTab === 'updates' && (
+                <>
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-8">
+                    <div className="flex items-center gap-4 text-slate-400 border-b border-slate-100 pb-3 mb-3 text-sm">
                   <button className="hover:text-slate-700 font-bold">B</button>
                   <button className="hover:text-slate-700 italic">I</button>
                   <button className="hover:text-slate-700 underline">U</button>
                   <div className="w-px h-4 bg-slate-200"></div>
-                  <button className="hover:text-slate-700"><Paperclip className="w-4 h-4" /></button>
+                  <label className="hover:text-slate-700 cursor-pointer">
+                    <Paperclip className="w-4 h-4" />
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        alert("O arquivo '" + file.name + "' foi selecionado na atualização! Crie o bucket 'attachments' no Supabase Storage para habilitar o upload.");
+                      }}
+                    />
+                  </label>
                 </div>
                 <textarea 
                   value={newUpdateText}
@@ -617,11 +661,15 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   {taskUpdates.map((update: any) => (
                     <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                          U
-                        </div>
+                        {update.author_email ? (
+                          <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${update.author_email}`} className="w-8 h-8 rounded-full border border-slate-200" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                            U
+                          </div>
+                        )}
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800">Usuário</h4>
+                          <h4 className="text-sm font-bold text-slate-800">{update.author_email ? update.author_email.split('@')[0] : 'Usuário'}</h4>
                           <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
                         </div>
                       </div>
@@ -640,6 +688,62 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   <p className="text-sm max-w-xs">Compartilhe o progresso, mencione um colega ou carregue um arquivo para dar andamento às coisas.</p>
                 </div>
               )}
+              </>
+              )}
+
+              {drawerTab === 'files' && (
+                <div className="flex flex-col items-center justify-center text-center mt-12 text-slate-400">
+                  <div className="w-32 h-32 mb-4 relative">
+                     <div className="absolute inset-0 bg-blue-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-blue-200">
+                       <Paperclip className="w-10 h-10 text-blue-400" />
+                     </div>
+                  </div>
+                  <h3 className="text-slate-800 font-bold text-lg mb-2">Anexar arquivos</h3>
+                  <p className="text-sm max-w-xs mb-6">Arraste e solte arquivos aqui ou clique no botão abaixo para escolher do seu computador.</p>
+                  
+                  <label className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-sm">
+                    Selecionar Arquivo
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        alert("O arquivo '" + file.name + "' foi selecionado! Para funcionar na nuvem, você precisa criar o bucket 'attachments' no Supabase Storage.");
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+
+              {drawerTab === 'activity' && (
+                <div className="flex flex-col gap-0 relative">
+                  <div className="absolute left-4 top-4 bottom-4 w-px bg-slate-200"></div>
+                  
+                  {taskUpdates && taskUpdates.length > 0 ? taskUpdates.map((update: any) => (
+                    <div key={'act-'+update.id} className="relative pl-12 py-4">
+                      <div className="absolute left-3 top-5 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white shadow-sm"></div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-sm text-slate-800">{update.author_email ? update.author_email.split('@')[0] : 'Usuário'}</span>
+                        <span className="text-sm text-slate-500">adicionou um comentário</span>
+                      </div>
+                      <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
+                    </div>
+                  )) : (
+                    <div className="text-center mt-8 text-slate-400 text-sm">Nenhuma atividade recente.</div>
+                  )}
+                  
+                  <div className="relative pl-12 py-4">
+                    <div className="absolute left-3 top-5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-sm text-slate-800">Sistema</span>
+                      <span className="text-sm text-slate-500">criou a tarefa</span>
+                    </div>
+                    <span className="text-xs text-slate-400">Há algum tempo</span>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </>
