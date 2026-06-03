@@ -180,7 +180,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
           <span className="text-slate-400 text-sm ml-2">{groupTasks?.length || 0} Tarefas</span>
         </div>
 
-        <div className="px-8">
+        <div className="px-8 mb-2">
           <style dangerouslySetInnerHTML={{ __html: `
             .date-hack::-webkit-calendar-picker-indicator {
               position: absolute;
@@ -194,8 +194,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
               cursor: pointer;
             }
           `}} />
-          <div className="bg-white border-y border-slate-200 rounded-tl-md relative overflow-x-auto overflow-y-visible">
-            <table className="w-full text-left border-collapse min-w-[1300px]" style={{ tableLayout: 'fixed' }}>
+          <div className="bg-white relative">
+            <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
                 <tr className="border-b border-slate-200 text-[#676879] text-[14px]">
                   <th className="w-2 p-0"></th>
@@ -426,25 +426,26 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
   return (
     <div className="w-full h-full relative">
-      <div className="w-full pb-32 pt-6">
-        {groupsToRender.map(groupName => renderGroup(groupName, groupedTasks[groupName] || []))}
-        
-        <div className="px-8 mt-6">
-          <button 
-            onClick={async () => {
-              const name = prompt('Nome do novo grupo:');
-              if (name) {
-                // Insere uma tarefa invisível ou template para forçar a criação do grupo no motor de visões
-                const { error } = await supabase.from('tasks').insert([
-                  { title: 'Nova Tarefa', board_id: boardId, group_name: name, position: 1 }
-                ]);
-                if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded-md transition-all font-medium text-sm bg-white shadow-sm"
-          >
-            <PlusCircle className="w-4 h-4" /> Adicionar novo grupo
-          </button>
+      <div className="flex-1 overflow-y-auto overflow-x-auto pb-24">
+        <div className="min-w-[1300px] w-full">
+          {groupsToRender.map(groupName => renderGroup(groupName, groupedTasks[groupName] || []))}
+          
+          <div className="px-8 mt-6">
+            <button 
+              onClick={async () => {
+                const name = prompt('Nome do novo grupo:');
+                if (name) {
+                  const { error } = await supabase.from('tasks').insert([
+                    { title: 'Nova Tarefa', board_id: boardId, group_name: name, position: 1 }
+                  ]);
+                  if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded-md transition-all font-medium text-sm bg-white shadow-sm"
+            >
+              <PlusCircle className="w-4 h-4" /> Adicionar novo grupo
+            </button>
+          </div>
         </div>
       </div>
 
