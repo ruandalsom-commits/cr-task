@@ -14,14 +14,18 @@ export function AssigneeCell({ task }: { task: any }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Busca todos os emails que já foram atribuídos a tarefas para simular a base de usuários do Workspace
   const { data: allTasks } = useQuery({
     queryKey: ['workspace_users'],
     queryFn: async () => {
-      const { data } = await supabase.from('tasks').select('assignee_email').not('assignee_email', 'is', null);
-      if (!data) return [];
-      const emails = data.map((d: any) => d.assignee_email as string);
-      return Array.from(new Set(emails)); // Remove duplicados
+      // 1. Pega os usuários oficiais da base (cadastrados)
+      const { data: profiles } = await supabase.from('profiles').select('email');
+      const profileEmails = profiles ? profiles.map((p: any) => p.email) : [];
+      
+      // 2. Pega os e-mails que já foram atribuídos a alguma tarefa (mesmo que não tenham conta ainda)
+      const { data: tasks } = await supabase.from('tasks').select('assignee_email').not('assignee_email', 'is', null);
+      const taskEmails = tasks ? tasks.map((d: any) => d.assignee_email as string) : [];
+      
+      return Array.from(new Set([...profileEmails, ...taskEmails])); // Remove duplicados
     }
   });
 
