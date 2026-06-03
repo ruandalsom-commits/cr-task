@@ -113,8 +113,14 @@ export function NotificationBell() {
                 {notifications.map((notif: any) => (
                   <div 
                     key={notif.id} 
-                    onClick={() => {
+                    onClick={async () => {
                       if (!notif.read) markAsRead.mutate(notif.id);
+                      if (notif.task_id) {
+                         const { data } = await supabase.from('tasks').select('board_id').eq('id', notif.task_id).single();
+                         if (data?.board_id) {
+                            window.location.href = `/boards/${data.board_id}?taskId=${notif.task_id}`;
+                         }
+                      }
                     }}
                     className={`p-4 border-b border-slate-50 cursor-pointer transition-colors ${notif.read ? 'bg-white opacity-60' : 'bg-blue-50/50 hover:bg-blue-50'}`}
                   >

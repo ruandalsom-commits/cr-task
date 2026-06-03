@@ -77,6 +77,20 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
     if (rawTasks && !activeId) setTasks(rawTasks);
   }, [rawTasks, activeId]);
 
+  useEffect(() => {
+    if (rawTasks && !taskDetailsOpen) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskIdUrl = urlParams.get('taskId');
+      if (taskIdUrl) {
+        const t = rawTasks.find((task: any) => task.id === taskIdUrl);
+        if (t) {
+          setTaskDetailsOpen(t);
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [rawTasks]);
+
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => {
       const { error } = await supabase.from('tasks').update({ status }).eq('id', id);

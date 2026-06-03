@@ -263,6 +263,21 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     );
   };
 
+  useEffect(() => {
+    if (tasks && !taskDetailsOpen) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const taskIdUrl = urlParams.get('taskId');
+      if (taskIdUrl) {
+        const t = tasks.find((task: any) => task.id === taskIdUrl);
+        if (t) {
+          setTaskDetailsOpen(t);
+          // Remove o parâmetro da URL de forma silenciosa pra não ficar abrindo toda hora
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [tasks]);
+
   const handleBulkDelete = async () => {
     if (confirm(`Tem certeza que deseja excluir ${selectedTasks.length} tarefas?`)) {
       for (const id of selectedTasks) {
