@@ -4,12 +4,73 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus } from 'lucide-react';
 
+import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
+
 const STATUS_COLORS: any = {
   'Feito': 'bg-[#00c875]',
   'Trabalhando': 'bg-[#fdab3d]',
   'Travado': 'bg-[#e2445c]',
   'Pendente': 'bg-[#c4c4c4]'
 };
+
+function TaskChip({ task, onClick }: any) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    data: { task }
+  });
+  const bgColor = STATUS_COLORS[task.status] || STATUS_COLORS['Pendente'];
+  return (
+    <div 
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => {
+         // Stop propagation in case DnD interferes
+         e.stopPropagation();
+         onClick();
+      }}
+      className={`text-[11px] px-2 py-1 cursor-pointer truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor} ${isDragging ? 'opacity-50' : ''}`}
+      title={task.title}
+    >
+      {task.title}
+    </div>
+  );
+}
+
+function DayCell({ dayObj, tasks, isToday, onTaskClick, onAddClick }: any) {
+  const dateString = dayObj.date.toISOString().split('T')[0];
+  const { setNodeRef, isOver } = useDroppable({
+    id: dateString,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={`border-r border-b border-slate-100 last:border-r-0 flex flex-col p-1 group relative transition-colors ${dayObj.isCurrentMonth ? 'bg-white' : 'bg-slate-50/50'} ${isOver ? 'bg-blue-50/50 border-blue-200' : ''}`}
+    >
+      <div className="flex justify-end mb-1">
+        <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? 'bg-blue-600 text-white shadow-sm' : (dayObj.isCurrentMonth ? 'text-slate-700 group-hover:bg-slate-100' : 'text-slate-400')}`}>
+          {dayObj.day}
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 relative z-10 pb-6">
+        {tasks.map((task: any) => (
+          <TaskChip key={task.id} task={task} onClick={() => onTaskClick(task)} />
+        ))}
+      </div>
+
+      <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 z-20">
+         <button 
+          onClick={onAddClick} 
+          className="w-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 py-1 rounded transition-colors"
+        >
+          + Add
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function BoardCalendarView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
@@ -21,6 +82,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [viewType, setViewType] = useState<'Mês' | 'Semana'>('Mês');
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
 
   // Busca de Tarefas
   const { data: rawTasks } = useQuery({
@@ -75,6 +138,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const filteredTasks = rawTasks?.filter((task: any) => {
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (filterStatus && task.status !== filterStatus) return false;
     return true;
   }) || [];
 
@@ -114,8 +178,21 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     });
   }
 
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const nextTime = () => {
+    if (viewType === 'Semana') {
+      setCurrentDate(new Date(year, month, currentDate.getDate() + 7));
+    } else {
+      setCurrentDate(new Date(year, month + 1, 1));
+    }
+  };
+  
+  const prevTime = () => {
+    if (viewType === 'Semana') {
+      setCurrentDate(new Date(year, month, currentDate.getDate() - 7));
+    } else {
+      setCurrentDate(new Date(year, month - 1, 1));
+    }
+  };
   const goToToday = () => setCurrentDate(new Date());
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -177,13 +254,25 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', boardId] })
   });
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over) {
+      const taskId = active.id as string;
+      const newDate = over.id as string;
+      const task = rawTasks?.find((t: any) => t.id === taskId);
+      if (task && !task.due_date?.startsWith(newDate)) {
+        updateTaskDate.mutate({ id: taskId, date: newDate });
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Toolbar do Calendário */}
       <div className="flex items-center gap-4 p-6 border-b border-slate-200">
         <div className="flex bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors overflow-hidden h-8">
-           <button className="px-4 font-medium text-sm">Criar tarefa</button>
-           <button className="px-2 border-l border-blue-700 flex items-center justify-center">
+           <button onClick={() => setCreatingTaskDate(new Date())} className="px-4 font-medium text-sm">Criar tarefa</button>
+           <button onClick={() => setCreatingTaskDate(new Date())} className="px-2 border-l border-blue-700 flex items-center justify-center">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M6 9l6 6 6-6"/></svg>
            </button>
         </div>
@@ -201,9 +290,22 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         <button className="h-8 px-3 hover:bg-slate-100 rounded flex items-center gap-2 text-slate-600 text-sm transition-colors">
           <User className="w-4 h-4" /> Pessoa
         </button>
-        <button className="h-8 px-3 hover:bg-slate-100 rounded flex items-center gap-2 text-slate-600 text-sm transition-colors">
-          <Filter className="w-4 h-4" /> Filtro
-        </button>
+        <div className="relative">
+          <button onClick={() => setFilterDropdownOpen(!filterDropdownOpen)} className={`h-8 px-3 rounded flex items-center gap-2 text-sm transition-colors ${filterStatus ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-slate-100 text-slate-600'}`}>
+            <Filter className="w-4 h-4" /> {filterStatus || 'Filtro'}
+          </button>
+          {filterDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[60]">
+              <button onClick={() => { setFilterStatus(null); setFilterDropdownOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 font-medium">Todos</button>
+              {Object.keys(STATUS_COLORS).map(status => (
+                <button key={status} onClick={() => { setFilterStatus(status); setFilterDropdownOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 font-medium flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[status]}`}></div>
+                  {status}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="flex-1"></div>
 
@@ -211,10 +313,10 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           Hoje
         </button>
         <div className="flex items-center gap-1">
-          <button onClick={prevMonth} className="h-8 w-8 hover:bg-slate-100 rounded flex items-center justify-center text-slate-600 transition-colors">
+          <button onClick={prevTime} className="h-8 w-8 hover:bg-slate-100 rounded flex items-center justify-center text-slate-600 transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <button onClick={nextMonth} className="h-8 w-8 hover:bg-slate-100 rounded flex items-center justify-center text-slate-600 transition-colors">
+          <button onClick={nextTime} className="h-8 w-8 hover:bg-slate-100 rounded flex items-center justify-center text-slate-600 transition-colors">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -252,50 +354,25 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         </div>
         
         {/* Dias do Mês/Semana */}
-        <div className={`flex-1 grid grid-cols-7 ${viewType === 'Mês' ? 'grid-rows-6' : 'grid-rows-1'}`}>
-          {daysToRender.map((dayObj, i) => {
-            const dateString = dayObj.date.toISOString().split('T')[0];
-            const tasksOnThisDay = filteredTasks?.filter((t: any) => t.due_date && t.due_date.startsWith(dateString)) || [];
+        <DndContext onDragEnd={handleDragEnd}>
+          <div className={`flex-1 grid grid-cols-7 ${viewType === 'Mês' ? 'grid-rows-6' : 'grid-rows-1'}`}>
+            {daysToRender.map((dayObj, i) => {
+              const dateString = dayObj.date.toISOString().split('T')[0];
+              const tasksOnThisDay = filteredTasks?.filter((t: any) => t.due_date && t.due_date.startsWith(dateString)) || [];
 
-            return (
-              <div 
-                key={i} 
-                className={`border-r border-b border-slate-100 last:border-r-0 flex flex-col p-1 group relative transition-colors ${dayObj.isCurrentMonth ? 'bg-white' : 'bg-slate-50/50'}`}
-              >
-                <div className="flex justify-end mb-1">
-                  <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${isToday(dayObj.date) ? 'bg-blue-600 text-white shadow-sm' : (dayObj.isCurrentMonth ? 'text-slate-700 group-hover:bg-slate-100' : 'text-slate-400')}`}>
-                    {dayObj.day}
-                  </div>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 relative z-10 pb-6">
-                  {tasksOnThisDay.map((task: any) => {
-                    const bgColor = STATUS_COLORS[task.status] || STATUS_COLORS['Pendente'];
-                    return (
-                      <div 
-                        key={task.id} 
-                        onClick={() => setTaskDetailsOpen(task)}
-                        className={`text-[11px] px-2 py-1 cursor-pointer truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor}`}
-                        title={task.title}
-                      >
-                        {task.title}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="absolute bottom-1 left-1 right-1 opacity-0 group-hover:opacity-100 z-20">
-                   <button 
-                    onClick={() => setCreatingTaskDate(dayObj.date)} 
-                    className="w-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 py-1 rounded transition-colors"
-                  >
-                    + Add
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              return (
+                <DayCell 
+                  key={i}
+                  dayObj={dayObj}
+                  tasks={tasksOnThisDay}
+                  isToday={isToday(dayObj.date)}
+                  onTaskClick={setTaskDetailsOpen}
+                  onAddClick={() => setCreatingTaskDate(dayObj.date)}
+                />
+              );
+            })}
+          </div>
+        </DndContext>
       </div>
 
       {/* Gaveta de Tarefa (Reaproveitada para o Calendário) */}
