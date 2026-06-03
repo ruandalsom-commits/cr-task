@@ -113,19 +113,57 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     }
   });
 
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const postUpdate = async () => {
-    if (!newUpdateText.trim() || !taskDetailsOpen) return;
+    if (!newUpdateText.trim() && !pendingFile) return;
+    if (!taskDetailsOpen) return;
+
+    let finalContent = newUpdateText;
+
+    if (pendingFile) {
+      setIsUploading(true);
+      try {
+        const fileExt = pendingFile.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `${taskDetailsOpen.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, pendingFile);
+
+        if (uploadError) {
+          alert("Erro no upload: Você criou o bucket 'attachments' e deu permissão pública no Supabase? (Veja o SQL)");
+          console.error(uploadError);
+          setIsUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
+
+        const isImage = pendingFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(pendingFile.name);
+        const isVideo = pendingFile.type.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(pendingFile.name);
+        const markdownContent = (isImage || isVideo) ? `![${pendingFile.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${pendingFile.name}](${publicUrl})`;
+        
+        finalContent = finalContent ? `${finalContent}\n\n${markdownContent}` : markdownContent;
+      } catch (err) {
+        console.error(err);
+        setIsUploading(false);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('task_updates').insert([
       { 
         task_id: taskDetailsOpen.id, 
-        content: newUpdateText,
+        content: finalContent,
         author_email: userProfile?.email || 'Usuário'
       }
     ]);
+
     if (!error) {
       setNewUpdateText('');
+      setPendingFile(null);
       refetchUpdates();
-      // Invalida a query de tasks para buscar o updates_count atualizado pelo trigger do Supabase
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
 
       // Enviar notificação para os responsáveis da tarefa
@@ -140,53 +178,11 @@ export function BoardTableView({ boardId }: { boardId: string }) {
           await supabase.from('notifications').insert(notifications);
         }
       }
-
     } else {
       alert("A tabela 'task_updates' ainda não foi criada no Supabase! Rode o SQL.");
     }
-  };
-
-  const [isUploading, setIsUploading] = useState(false);
-
-  const handleFileUpload = async (file: File, taskId: string) => {
-    try {
-      setIsUploading(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `${taskId}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, file);
-
-      if (uploadError) {
-        alert("Erro no upload: Você criou o bucket 'attachments' e deu permissão pública no Supabase? (Veja o SQL)");
-        console.error(uploadError);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
-
-      // Descobre se é imagem ou vídeo para mostrar preview
-      const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
-      const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(file.name);
-      const content = (isImage || isVideo) ? `![${file.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${file.name}](${publicUrl})`;
-
-      const { error: dbError } = await supabase.from('task_updates').insert([
-        { 
-          task_id: taskId, 
-          content: content,
-          author_email: userProfile?.email || 'Usuário'
-        }
-      ]);
-
-      if (!dbError) {
-        refetchUpdates();
-        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsUploading(false);
-    }
+    
+    setIsUploading(false);
   };
 
   const deleteUpdate = async (updateId: string, content: string) => {
@@ -233,7 +229,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tasks')
-        .select('*')
+        .select('*, task_updates(id)')
         .eq('board_id', boardId)
         .order('position');
       if (error) throw error;
@@ -394,9 +390,9 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           <div className="relative">
                             <MessageCirclePlus className="w-5 h-5 text-slate-300 group-hover/chat:text-blue-500 stroke-[1.5] transition-colors" />
                             {/* Simulação de notificação: Badge azul com count se existir updates_count na DB */}
-                            {task.updates_count > 0 && (
+                            {task.task_updates?.length > 0 && (
                               <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                                <span className="text-[10px] text-white font-bold leading-none">{task.updates_count}</span>
+                                <span className="text-[10px] text-white font-bold leading-none">{task.task_updates.length}</span>
                               </div>
                             )}
                           </div>
@@ -727,14 +723,20 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     <input 
                       type="file" 
                       className="hidden" 
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
-                        await handleFileUpload(file, taskDetailsOpen.id);
+                        if (file) setPendingFile(file);
                       }}
                     />
                   </label>
                 </div>
+                {pendingFile && (
+                  <div className="flex items-center gap-2 mb-3 bg-blue-50 text-blue-700 px-3 py-2 rounded border border-blue-100 text-sm">
+                    <Paperclip className="w-4 h-4" />
+                    <span className="flex-1 truncate">{pendingFile.name}</span>
+                    <button onClick={() => setPendingFile(null)} className="hover:text-blue-900"><X className="w-4 h-4" /></button>
+                  </div>
+                )}
                 <div className="relative">
                   <textarea 
                     value={newUpdateText}
@@ -830,10 +832,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     <input 
                       type="file" 
                       className="hidden" 
-                      onChange={async (e) => {
+                      onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        await handleFileUpload(file, taskDetailsOpen.id);
+                        setPendingFile(file);
                         setDrawerTab('updates');
                       }}
                     />

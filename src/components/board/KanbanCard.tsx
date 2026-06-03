@@ -118,9 +118,9 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
             title="Atualizações"
           >
             <MessageCirclePlus className="w-4 h-4 stroke-[1.5]" />
-            {task.updates_count > 0 && (
+            {task.task_updates?.length > 0 && (
               <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white border border-white">
-                {task.updates_count}
+                {task.task_updates.length}
               </span>
             )}
           </button>
