@@ -97,6 +97,20 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       refetchUpdates();
       // Invalida a query de tasks para buscar o updates_count atualizado pelo trigger do Supabase
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+
+      // Enviar notificação para os responsáveis da tarefa
+      if (taskDetailsOpen.assignee_email) {
+        const emails = taskDetailsOpen.assignee_email.split(',').map((e: string) => e.trim()).filter(Boolean);
+        const notifications = emails.map((email: string) => ({
+          user_email: email,
+          message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
+          task_id: taskDetailsOpen.id
+        }));
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      }
+
     } else {
       alert("A tabela 'task_updates' ainda não foi criada no Supabase! Rode o SQL.");
     }

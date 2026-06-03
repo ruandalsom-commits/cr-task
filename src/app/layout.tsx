@@ -4,6 +4,7 @@ import "./globals.css";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { Bell, Search, UserPlus, Grid, MoreHorizontal, LayoutTemplate, Briefcase, LogOut } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { supabase } from "@/lib/supabaseClient";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -34,9 +35,7 @@ export default function RootLayout({
                 <button className="w-full flex justify-center p-2 text-blue-300 border-l-[3px] border-blue-400 bg-white/10 transition-colors">
                   <Briefcase strokeWidth={2.5} className="w-5 h-5" />
                 </button>
-                <button className="w-full flex justify-center p-2 text-slate-400 hover:text-white transition-colors border-l-[3px] border-transparent">
-                  <Bell strokeWidth={2.5} className="w-5 h-5" />
-                </button>
+                <NotificationBell />
                 <button className="w-full flex justify-center p-2 text-slate-400 hover:text-white transition-colors border-l-[3px] border-transparent">
                   <Search strokeWidth={2.5} className="w-5 h-5" />
                 </button>
