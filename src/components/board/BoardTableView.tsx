@@ -187,7 +187,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   <th className="w-2 p-0"></th>
                   <th className="w-10 text-center p-0 border-r border-slate-200"></th>
                   <th className="font-normal px-4 py-2 border-r border-slate-200" style={{ width: '35%' }}></th>
-                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-24 text-center">Resp.</th>
+                  <th className="w-14 border-r border-slate-200"></th>
+                  <th className="font-normal px-4 py-2 border-r border-slate-200 w-28 text-center">Responsável</th>
                   <th className="font-normal px-0 py-0 border-r border-slate-200 w-40 text-center">Status</th>
                   <th className="font-normal px-4 py-2 border-r border-slate-200 w-48 text-center">Timeline</th>
                   <th className="font-normal px-4 py-2 border-r border-slate-200 w-32 text-center">Prazo</th>
@@ -222,13 +223,6 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           />
                           <div className="flex items-center gap-1 bg-[#f5f6f8] px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
                             <button 
-                              onClick={() => setTaskDetailsOpen(task)}
-                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                              title="Adicionar atualização"
-                            >
-                              <MessageCirclePlus className="w-[18px] h-[18px] stroke-[1.5]" />
-                            </button>
-                            <button 
                               onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
                               className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors"
                               title="Excluir"
@@ -238,12 +232,24 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           </div>
                         </div>
                       </td>
+                      <td className="border-r border-slate-200 text-center relative hover:bg-slate-50 transition-colors">
+                        <div className="absolute inset-0 flex items-center justify-center cursor-pointer" onClick={() => setTaskDetailsOpen(task)}>
+                          <div className="relative group/chat">
+                            <MessageCirclePlus className="w-5 h-5 text-slate-300 group-hover/chat:text-blue-500 stroke-[1.5] transition-colors" />
+                            {/* Simulador de contador para visual: se tiver comentários no futuro, mostrar o badge azul */}
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-4 py-0 border-r border-slate-200 text-center relative">
                         <div 
                           onClick={() => setAssigneePopoverOpen(assigneePopoverOpen === task.id ? null : task.id)}
-                          className="w-8 h-8 rounded-full bg-slate-300 mx-auto overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 ring-blue-400 transition-all"
+                          className={`w-8 h-8 rounded-full mx-auto overflow-hidden border cursor-pointer transition-all flex items-center justify-center ${task.assignee_email ? 'border-slate-200 hover:ring-2 ring-blue-400' : 'bg-slate-100 border-dashed border-slate-300 hover:bg-slate-200'}`}
                         >
-                          <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} alt="avatar" className="w-full h-full object-cover" />
+                          {task.assignee_email ? (
+                            <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.assignee_email}`} alt="avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <UserPlus className="w-4 h-4 text-slate-400" />
+                          )}
                         </div>
                         
                         {/* Popover de Responsável */}
@@ -251,31 +257,51 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setAssigneePopoverOpen(null)}></div>
                             <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-4 text-left animate-in fade-in zoom-in duration-150">
-                              <div className="flex items-center gap-2 mb-4">
-                                <div className="flex items-center bg-slate-100 rounded-full pl-1 pr-3 py-1 gap-2">
-                                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.id}`} className="w-6 h-6 rounded-full" />
-                                  <span className="text-xs font-semibold text-slate-700">Ruan Dalso...</span>
-                                  <button className="text-slate-400 hover:text-slate-700"><X className="w-3 h-3" /></button>
+                              {task.assignee_email && (
+                                <div className="flex items-center gap-2 mb-4">
+                                  <div className="flex items-center bg-slate-100 rounded-full pl-1 pr-3 py-1 gap-2 border border-slate-200">
+                                    <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.assignee_email}`} className="w-6 h-6 rounded-full" />
+                                    <span className="text-xs font-semibold text-slate-700 truncate max-w-[120px]">{task.assignee_email.split('@')[0]}</span>
+                                    <button 
+                                      onClick={() => {
+                                        updateTask.mutate({ id: task.id, updates: { assignee_email: null } });
+                                        setAssigneePopoverOpen(null);
+                                      }}
+                                      className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-0.5 rounded-full transition-colors"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                               <div className="relative mb-4">
                                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input 
                                   type="text" 
-                                  placeholder="Pesquise nomes, funções..." 
+                                  placeholder="Pesquise e digite o e-mail..." 
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      updateTask.mutate({ id: task.id, updates: { assignee_email: e.currentTarget.value } });
+                                      setAssigneePopoverOpen(null);
+                                    }
+                                  }}
                                   className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
                                 />
                               </div>
                               <h4 className="text-xs text-slate-500 font-semibold mb-2">Pessoas sugeridas</h4>
-                              <button className="flex items-center gap-3 w-full p-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 transition-colors">
+                              <button 
+                                onClick={() => {
+                                  const email = prompt("E-mail para convidar:");
+                                  if (email) {
+                                    updateTask.mutate({ id: task.id, updates: { assignee_email: email } });
+                                    setAssigneePopoverOpen(null);
+                                  }
+                                }}
+                                className="flex items-center gap-3 w-full p-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 transition-colors"
+                              >
                                 <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"><UserPlus className="w-4 h-4" /></div>
                                 Convide um novo membro por e-mail
                               </button>
-                              <div className="mt-4 pt-4 border-t border-slate-100">
-                                <button className="flex items-center justify-center gap-2 w-full text-sm font-semibold text-slate-600 hover:bg-slate-50 p-2 rounded-lg transition-colors">
-                                  <Sparkles className="w-4 h-4 text-blue-500" /> Atribuir automaticamente
-                                </button>
-                              </div>
                             </div>
                           </>
                         )}
@@ -335,7 +361,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 <tr className="hover:bg-[#f5f6f8] transition-colors h-[42px]">
                   <td className="w-2 p-0 bg-transparent border-l-[3px] border-transparent group-hover:border-l-slate-300"></td>
                   <td className="w-10 border-r border-slate-200 bg-[#f5f6f8]"></td>
-                  <td colSpan={7} className="px-4 py-0">
+                  <td colSpan={8} className="px-4 py-0">
                     <input 
                       type="text" 
                       placeholder="+ Adicionar Item" 

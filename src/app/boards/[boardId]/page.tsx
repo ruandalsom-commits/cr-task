@@ -18,7 +18,7 @@ export default function BoardPage({ params }: { params: Promise<{ boardId: strin
       {/* Header do Quadro */}
       <div className="flex flex-col border-b border-slate-200 px-8 pt-8 pb-0 gap-6 bg-white z-20">
         <div className="flex justify-between items-start">
-          <h1 className="text-[32px] font-bold text-[#323338] tracking-tight">Panorama do projeto</h1>
+          <h1 className="text-[42px] font-bold text-[#323338] tracking-tight">Panorama do projeto</h1>
           <button className="p-2 hover:bg-slate-100 rounded text-slate-500">
             <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zm8 0a2 2 0 11-4 0 2 2 0 014 0zm8 0a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </button>

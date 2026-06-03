@@ -42,6 +42,36 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   // Estado local para otimizar o drag & drop
   const [tasks, setTasks] = useState<any[]>([]);
 
+  // Estados para a Gaveta
+  const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
+  const [newUpdateText, setNewUpdateText] = useState('');
+
+  const { data: taskUpdates, refetch: refetchUpdates } = useQuery({
+    queryKey: ['task_updates', taskDetailsOpen?.id],
+    queryFn: async () => {
+      if (!taskDetailsOpen?.id) return [];
+      const { data, error } = await supabase
+        .from('task_updates')
+        .select('*')
+        .eq('task_id', taskDetailsOpen.id)
+        .order('created_at', { ascending: false });
+      if (error) return [];
+      return data;
+    },
+    enabled: !!taskDetailsOpen?.id
+  });
+
+  const postUpdate = async () => {
+    if (!newUpdateText.trim() || !taskDetailsOpen) return;
+    const { error } = await supabase.from('task_updates').insert([
+      { task_id: taskDetailsOpen.id, content: newUpdateText }
+    ]);
+    if (!error) {
+      setNewUpdateText('');
+      refetchUpdates();
+    }
+  };
+
   useEffect(() => {
     if (rawTasks) setTasks(rawTasks);
   }, [rawTasks]);
@@ -132,7 +162,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
             <SortableContext items={col.tasks.map(t => t.id)}>
               <div className="flex flex-col gap-3 min-h-[100px]">
                 {col.tasks.map(task => (
-                  <KanbanCard key={task.id} task={task} />
+                  <KanbanCard key={task.id} task={task} onOpenTask={() => setTaskDetailsOpen(task)} />
                 ))}
               </div>
             </SortableContext>
@@ -143,6 +173,56 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
           {activeTask ? <KanbanCard task={activeTask} isOverlay /> : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Task Drawer (Gaveta Lateral de Atualizações) no Kanban */}
+      {taskDetailsOpen && (
+        <>
+          <div className="fixed inset-0 bg-slate-900/20 z-40" onClick={() => setTaskDetailsOpen(null)}></div>
+          <div className="fixed top-0 right-0 h-screen w-[600px] bg-white shadow-2xl z-50 border-l border-slate-200 flex flex-col animate-in slide-in-from-right-full">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <h2 className="text-2xl font-bold text-slate-800">{taskDetailsOpen.title}</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-8">
+                <textarea 
+                  value={newUpdateText}
+                  onChange={(e) => setNewUpdateText(e.target.value)}
+                  placeholder="Escreva uma atualização..." 
+                  className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
+                ></textarea>
+                <div className="flex justify-end mt-2">
+                  <button 
+                    onClick={postUpdate}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                  >
+                    Atualizar
+                  </button>
+                </div>
+              </div>
+
+              {taskUpdates && taskUpdates.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {taskUpdates.map((update: any) => (
+                    <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{update.content}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center mt-12 text-slate-400">
+                  <p className="text-sm max-w-xs">Nenhuma atualização ainda.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
