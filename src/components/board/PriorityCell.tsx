@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -13,6 +14,8 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 export function PriorityCell({ task }: { task: any }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -21,12 +24,17 @@ export function PriorityCell({ task }: { task: any }) {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && 
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('resize', () => setIsOpen(false));
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', () => setIsOpen(false));
+    };
   }, []);
 
   const updatePriority = useMutation({
@@ -43,10 +51,18 @@ export function PriorityCell({ task }: { task: any }) {
     }
   });
 
+  const handleOpen = (e: React.MouseEvent) => {
+    if (buttonRef.current) {
+      setRect(buttonRef.current.getBoundingClientRect());
+    }
+    setIsOpen(!isOpen);
+  };
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center" ref={dropdownRef}>
+    <div className="w-full h-full flex items-center justify-center">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={handleOpen}
         className={`w-full h-full min-h-[36px] flex items-center justify-center text-white font-medium text-[13px] shadow-sm hover:opacity-90 transition-opacity ${colorClass}`}
         style={{ textShadow: '0px 1px 1px rgba(0,0,0,0.1)' }}
       >
@@ -56,8 +72,12 @@ export function PriorityCell({ task }: { task: any }) {
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute top-full mt-1 z-50 w-48 bg-white rounded-lg shadow-xl border border-slate-100 p-2 animate-in fade-in slide-in-from-top-2">
+      {isOpen && rect && typeof document !== 'undefined' && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="fixed z-[9999] w-48 bg-white rounded-lg shadow-xl border border-slate-100 p-2 animate-in fade-in"
+          style={{ top: rect.bottom + 4, left: rect.left + rect.width / 2, transform: 'translateX(-50%)' }}
+        >
           {Object.keys(PRIORITY_COLORS).map((priority) => (
             <button
               key={priority}
@@ -67,7 +87,8 @@ export function PriorityCell({ task }: { task: any }) {
               {priority}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
