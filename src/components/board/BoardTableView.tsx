@@ -441,10 +441,12 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           <input 
                             type="file" 
                             className="hidden" 
-                            onChange={async (e) => {
+                            onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              await handleFileUpload(file, task.id);
+                              setTaskDetailsOpen(task);
+                              setDrawerTab('updates');
+                              setPendingFile(file);
                             }}
                           />
                         </label>
