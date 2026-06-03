@@ -165,9 +165,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
       const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
 
-      // Descobre se é imagem para mostrar preview
+      // Descobre se é imagem ou vídeo para mostrar preview
       const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
-      const content = isImage ? `![${file.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${file.name}](${publicUrl})`;
+      const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(file.name);
+      const content = (isImage || isVideo) ? `![${file.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${file.name}](${publicUrl})`;
 
       const { error: dbError } = await supabase.from('task_updates').insert([
         { 
@@ -795,7 +796,12 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                         dangerouslySetInnerHTML={{
                           __html: update.content
                             .replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded-lg mt-2 max-h-64 object-cover border border-slate-200 shadow-sm" />')
+                            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match: string, alt: string, url: string) => {
+                              if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) {
+                                return `<video src="${url}" controls class="max-w-full rounded-lg mt-2 max-h-96 border border-slate-200 shadow-sm"></video>`;
+                              }
+                              return `<img src="${url}" alt="${alt}" class="max-w-full rounded-lg mt-2 max-h-64 object-cover border border-slate-200 shadow-sm" />`;
+                            })
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
                         }}
                       />
@@ -833,20 +839,23 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     />
                   </label>
 
-                  {taskUpdates && taskUpdates.some((u: any) => u.content.includes('📁 **Arquivo anexado:**')) ? (
+                  {taskUpdates && taskUpdates.some((u: any) => u.content.includes('](')) ? (
                     <div className="grid grid-cols-2 gap-4">
-                      {taskUpdates.filter((u: any) => u.content.includes('📁 **Arquivo anexado:**')).map((update: any) => {
+                      {taskUpdates.filter((u: any) => u.content.includes('](')).map((update: any) => {
                         const urlMatch = update.content.match(/\]\(([^)]+)\)/);
                         const nameMatch = update.content.match(/\[([^\]]+)\]/);
                         const url = urlMatch ? urlMatch[1] : '#';
                         const name = nameMatch ? nameMatch[1] : 'Arquivo';
-                        const isImage = url.match(/\.(jpeg|jpg|gif|png)$/i) != null || update.content.includes('![');
+                        const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) != null;
+                        const isVideo = url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i) != null;
 
                         return (
                           <a key={'file-'+update.id} href={url} target="_blank" className="border border-slate-200 rounded-lg overflow-hidden hover:border-blue-400 transition-colors flex flex-col group bg-white shadow-sm">
                             <div className="h-24 bg-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100">
                               {isImage ? (
                                 <img src={url} alt={name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                              ) : isVideo ? (
+                                <video src={url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted preload="metadata" />
                               ) : (
                                 <FileText className="w-8 h-8 text-slate-300" />
                               )}
