@@ -715,7 +715,15 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
                         </div>
                       </div>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{update.content}</p>
+                      <div 
+                        className="text-sm text-slate-700 whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{
+                          __html: update.content
+                            .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded-lg mt-2 max-h-64 object-cover border border-slate-200 shadow-sm" />')
+                            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
@@ -734,17 +742,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
               )}
 
               {drawerTab === 'files' && (
-                <div className="flex flex-col items-center justify-center text-center mt-12 text-slate-400">
-                  <div className="w-32 h-32 mb-4 relative">
-                     <div className="absolute inset-0 bg-blue-50 rounded-2xl flex items-center justify-center border-2 border-dashed border-blue-200">
-                       <Paperclip className="w-10 h-10 text-blue-400" />
-                     </div>
-                  </div>
-                  <h3 className="text-slate-800 font-bold text-lg mb-2">Anexar arquivos</h3>
-                  <p className="text-sm max-w-xs mb-6">Arraste e solte arquivos aqui ou clique no botão abaixo para escolher do seu computador.</p>
-                  
-                  <label className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer shadow-sm">
-                    Selecionar Arquivo
+                <div className="flex flex-col gap-6">
+                  <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-blue-200 bg-blue-50/50 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors">
+                    <Paperclip className="w-8 h-8 text-blue-400 mb-2" />
+                    <span className="text-sm font-medium text-blue-700">Clique para anexar arquivo</span>
                     <input 
                       type="file" 
                       className="hidden" 
@@ -752,10 +753,39 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         await handleFileUpload(file, taskDetailsOpen.id);
-                        setDrawerTab('updates'); // Volta para aba de atualizações para ver o arquivo
+                        setDrawerTab('updates');
                       }}
                     />
                   </label>
+
+                  {taskUpdates && taskUpdates.some((u: any) => u.content.includes('📁 **Arquivo anexado:**')) ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {taskUpdates.filter((u: any) => u.content.includes('📁 **Arquivo anexado:**')).map((update: any) => {
+                        const urlMatch = update.content.match(/\]\(([^)]+)\)/);
+                        const nameMatch = update.content.match(/\[([^\]]+)\]/);
+                        const url = urlMatch ? urlMatch[1] : '#';
+                        const name = nameMatch ? nameMatch[1] : 'Arquivo';
+                        const isImage = url.match(/\.(jpeg|jpg|gif|png)$/i) != null || update.content.includes('![');
+
+                        return (
+                          <a key={'file-'+update.id} href={url} target="_blank" className="border border-slate-200 rounded-lg overflow-hidden hover:border-blue-400 transition-colors flex flex-col group bg-white shadow-sm">
+                            <div className="h-24 bg-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100">
+                              {isImage ? (
+                                <img src={url} alt={name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                              ) : (
+                                <FileText className="w-8 h-8 text-slate-300" />
+                              )}
+                            </div>
+                            <div className="p-2 text-xs font-medium text-slate-700 truncate" title={name}>
+                              {name}
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-400 py-8">Nenhum arquivo anexado ainda.</div>
+                  )}
                 </div>
               )}
 

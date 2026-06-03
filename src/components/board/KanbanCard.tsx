@@ -84,22 +84,47 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-        <div className="w-6 h-6 rounded-full bg-slate-200 border border-white overflow-hidden flex items-center justify-center">
+        <div className="flex -space-x-2">
           {task.assignee_email ? (
-            <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${task.assignee_email}`} alt="avatar" className="w-full h-full object-cover" />
+            task.assignee_email.split(',').map((email: string, i: number) => {
+              const e = email.trim();
+              if (!e) return null;
+              return (
+                <div key={i} title={e} className="w-6 h-6 rounded-full bg-slate-200 border border-white overflow-hidden flex items-center justify-center relative group">
+                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${e}`} alt="avatar" className="w-full h-full object-cover" />
+                </div>
+              );
+            })
           ) : (
-            <User className="w-3.5 h-3.5 text-slate-400" />
+            <div className="w-6 h-6 rounded-full bg-slate-100 border border-white overflow-hidden flex items-center justify-center" title="Sem responsável">
+              <User className="w-3.5 h-3.5 text-slate-400" />
+            </div>
           )}
         </div>
         
-        <button 
-          onPointerDown={(e) => e.stopPropagation()} // Previne arrastar ao clicar
-          onClick={(e) => { e.stopPropagation(); onOpenTask?.(); }}
-          className="flex items-center gap-1 hover:bg-slate-50 p-1 rounded transition-colors text-slate-400 hover:text-blue-500 group"
-        >
-          {/* Se tivéssemos o contador de comments, colocaríamos aqui. Para visual, deixamos o ícone novo */}
-          <MessageCirclePlus className="w-4 h-4 stroke-[1.5]" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onOpenTask?.(); }}
+            className="flex items-center gap-1 hover:bg-slate-50 p-1 rounded transition-colors text-slate-400 hover:text-blue-500 relative"
+            title="Ver arquivos"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          </button>
+          <button 
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onOpenTask?.(); }}
+            className="flex items-center gap-1 hover:bg-slate-50 p-1 rounded transition-colors text-slate-400 hover:text-blue-500 relative group"
+            title="Atualizações"
+          >
+            <MessageCirclePlus className="w-4 h-4 stroke-[1.5]" />
+            {task.updates_count > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[9px] font-bold text-white border border-white">
+                {task.updates_count}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
