@@ -629,7 +629,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
 
     </div>
   );
