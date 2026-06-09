@@ -113,6 +113,14 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     }
   });
 
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data: profiles } = await supabase.from('profiles').select('email, avatar_url');
+      return profiles || [];
+    }
+  });
+
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -799,13 +807,20 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                          </button>
                       </div>
                       <div className="flex items-center gap-3 mb-3">
-                        {update.author_email ? (
-                          <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${update.author_email}`} className="w-8 h-8 rounded-full border border-slate-200" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                            U
-                          </div>
-                        )}
+                        {(() => {
+                          const authorEmail = update.author_email;
+                          const profile = workspaceUsers?.find((p: any) => p.email === authorEmail);
+                          const avatarSrc = profile?.avatar_url || (authorEmail ? `https://api.dicebear.com/7.x/notionists/svg?seed=${authorEmail}` : null);
+                          
+                          if (avatarSrc) {
+                            return <img src={avatarSrc} className="w-8 h-8 rounded-full border border-slate-200 object-cover" />;
+                          }
+                          return (
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                              U
+                            </div>
+                          );
+                        })()}
                         <div>
                           <h4 className="text-sm font-bold text-slate-800">{update.author_email ? update.author_email.split('@')[0] : 'Usuário'}</h4>
                           <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>

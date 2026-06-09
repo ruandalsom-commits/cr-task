@@ -3,6 +3,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Calendar, MessageCirclePlus, User } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabaseClient';
 
 const STATUS_COLORS: any = {
   'Feito': 'bg-[#00c875]',
@@ -27,6 +29,14 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
     transition,
     isDragging,
   } = useSortable({ id: task.id, data: { type: 'Task', task } });
+
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data: profiles } = await supabase.from('profiles').select('email, avatar_url');
+      return profiles || [];
+    }
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -89,9 +99,11 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
             task.assignee_email.split(',').map((email: string, i: number) => {
               const e = email.trim();
               if (!e) return null;
+              const profile = workspaceUsers?.find((u: any) => u.email === e);
+              const avatarSrc = profile?.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${e}`;
               return (
                 <div key={i} title={e} className="w-6 h-6 rounded-full bg-slate-200 border border-white overflow-hidden flex items-center justify-center relative group">
-                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${e}`} alt="avatar" className="w-full h-full object-cover" />
+                  <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" />
                 </div>
               );
             })

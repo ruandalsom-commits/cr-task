@@ -5,6 +5,7 @@ import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { Bell, Search, UserPlus, Grid, MoreHorizontal, LayoutTemplate, Briefcase, LogOut } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { UserProfile } from "@/components/layout/UserProfile";
 import { supabase } from "@/lib/supabaseClient";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -42,9 +43,7 @@ export default function RootLayout({
               </nav>
 
               <div className="mt-auto flex flex-col gap-4 items-center">
-                <button className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold border border-white/20">
-                  R
-                </button>
+                <UserProfile />
               </div>
             </aside>
             
