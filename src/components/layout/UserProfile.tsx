@@ -134,7 +134,7 @@ export function UserProfile() {
         <div 
           ref={dropdownRef}
           className="fixed z-[9999] w-[260px] bg-white rounded-xl shadow-xl border border-slate-200 p-2 text-left animate-in fade-in zoom-in duration-150"
-          style={{ top: rect.top - 10, left: rect.right + 16 }}
+          style={{ bottom: window.innerHeight - rect.bottom - 10, left: rect.right + 16 }}
         >
           <div className="p-3 border-b border-slate-100 flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0">
