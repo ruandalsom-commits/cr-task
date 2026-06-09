@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { LogOut, Upload, User, Image as ImageIcon } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function UserProfile() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +14,7 @@ export function UserProfile() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     async function loadUser() {
@@ -98,14 +100,17 @@ export function UserProfile() {
       // Atualizar profile
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: avatarUrl })
-        .eq('id', user.id);
+        .upsert(
+          { id: user.id, email: user.email, avatar_url: avatarUrl },
+          { onConflict: 'id' }
+        );
 
       if (updateError) {
         throw updateError;
       }
 
       setProfile({ ...profile, avatar_url: avatarUrl });
+      queryClient.invalidateQueries({ queryKey: ['workspace_users'] });
     } catch (error: any) {
       alert(error.message || 'Erro ao fazer upload do avatar!');
     } finally {
