@@ -88,29 +88,45 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
       setNewUpdateText('');
       refetchUpdates();
 
-      const emailsToNotify = new Set<string>();
+      const assigneeEmails = new Set<string>();
       if (taskDetailsOpen.assignee_email) {
         taskDetailsOpen.assignee_email.split(',').forEach((e: string) => {
-          if (e.trim()) emailsToNotify.add(e.trim());
+          if (e.trim()) assigneeEmails.add(e.trim());
         });
       }
 
+      const mentionEmails = new Set<string>();
       const mentions = newUpdateText.match(/@([a-zA-Z0-9_.-]+)/g) || [];
       if (mentions.length > 0 && workspaceUsers) {
         mentions.forEach((mention: string) => {
           const username = mention.substring(1).toLowerCase();
           const matchedUser = workspaceUsers.find((u: any) => u.email.toLowerCase().startsWith(username));
           if (matchedUser) {
-            emailsToNotify.add(matchedUser.email);
+            mentionEmails.add(matchedUser.email);
           }
         });
       }
 
-      const notifications = Array.from(emailsToNotify).map((email: string) => ({
-        user_email: email,
-        message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
-        task_id: taskDetailsOpen.id
-      }));
+      const notifications: any[] = [];
+      const currentUserName = userProfile?.email?.split('@')[0] || 'Usuário';
+
+      mentionEmails.forEach(email => assigneeEmails.delete(email));
+
+      mentionEmails.forEach(email => {
+        notifications.push({
+          user_email: email,
+          message: `${currentUserName} mencionou você na tarefa "${taskDetailsOpen.title}"`,
+          task_id: taskDetailsOpen.id
+        });
+      });
+
+      assigneeEmails.forEach(email => {
+        notifications.push({
+          user_email: email,
+          message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
+          task_id: taskDetailsOpen.id
+        });
+      });
 
       if (notifications.length > 0) {
         await supabase.from('notifications').insert(notifications);
