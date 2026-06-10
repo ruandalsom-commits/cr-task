@@ -2,9 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type, MessageSquare, MoreHorizontal, X, Paperclip, Activity, Trash2 } from 'lucide-react';
 
-import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragStartEvent, useDraggable, useDroppable, DragOverlay } from '@dnd-kit/core';
+import { StatusCell } from './StatusCell';
+import { PriorityCell } from './PriorityCell';
+import { AssigneeCell } from './AssigneeCell';
 
 const STATUS_COLORS: any = {
   'Feito': 'bg-[#00c875]',
@@ -17,30 +20,34 @@ const STATUS_COLORS: any = {
 const PRIORITIES = ['Alta', 'Média', 'Baixa', 'Vazio'];
 const STATUSES = ['Feito', 'Trabalhando', 'Travado', 'Pendente', 'Não iniciado'];
 
-function TaskChip({ task, onClick }: any) {
-  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
+function TaskChip({ task, onClick, isOverlay = false }: any) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: task.id,
     data: { task }
   });
   const bgColor = STATUS_COLORS[task.status] || STATUS_COLORS['Pendente'];
   
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    zIndex: isDragging ? 999 : 1,
-  } : undefined;
+  if (isDragging && !isOverlay) {
+    return (
+      <div 
+        ref={setNodeRef}
+        className="text-[11px] px-2 py-1 truncate rounded-sm font-medium border border-slate-200 bg-slate-100 text-transparent opacity-50"
+      >
+        {task.title}
+      </div>
+    );
+  }
 
   return (
     <div 
       ref={setNodeRef}
-      style={style}
       {...listeners}
       {...attributes}
       onClick={(e) => {
-         // Stop propagation in case DnD interferes
          e.stopPropagation();
-         onClick();
+         onClick?.();
       }}
-      className={`text-[11px] px-2 py-1 cursor-pointer truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor} ${isDragging ? 'opacity-50 relative' : ''}`}
+      className={`text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90' : ''}`}
       title={task.title}
     >
       {task.title}
@@ -57,7 +64,7 @@ function DayCell({ dayObj, tasks, isToday, onTaskClick, onAddClick }: any) {
   return (
     <div 
       ref={setNodeRef}
-      className={`border-r border-b border-slate-100 last:border-r-0 flex flex-col p-1 group relative transition-colors ${dayObj.isCurrentMonth ? 'bg-white' : 'bg-slate-50/50'} ${isOver ? 'bg-blue-50/50 border-blue-200' : ''}`}
+      className={`border-r border-b border-slate-100 last:border-r-0 flex flex-col p-1 group relative transition-colors ${isOver ? 'bg-slate-300/50 border-slate-300' : (dayObj.isCurrentMonth ? 'bg-white' : 'bg-slate-50/50')}`}
     >
       <div className="flex justify-end mb-1">
         <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? 'bg-blue-600 text-white shadow-sm' : (dayObj.isCurrentMonth ? 'text-slate-700 group-hover:bg-slate-100' : 'text-slate-400')}`}>
@@ -127,6 +134,18 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       return profiles || [];
     }
   });
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['user_profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    }
+  });
+
+  const [drawerTab, setDrawerTab] = useState<'updates'|'files'|'activity'>('updates');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Lê taskId da URL se houver para abrir a gaveta (igual ao Kanban/Tabela)
   useEffect(() => {
@@ -297,13 +316,97 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
   const [newUpdateText, setNewUpdateText] = useState('');
   
   const postUpdate = async () => {
-    if (!newUpdateText.trim() || !taskDetailsOpen) return;
+    if (!newUpdateText.trim() && !pendingFile) return;
+    if (!taskDetailsOpen) return;
+
+    let finalContent = newUpdateText;
+
+    if (pendingFile) {
+      setIsUploading(true);
+      try {
+        const fileExt = pendingFile.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `${taskDetailsOpen.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('attachments').upload(filePath, pendingFile);
+
+        if (uploadError) {
+          alert("Erro no upload do anexo");
+          console.error(uploadError);
+          setIsUploading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(filePath);
+
+        const isImage = pendingFile.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(pendingFile.name);
+        const isVideo = pendingFile.type.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(pendingFile.name);
+        const markdownContent = (isImage || isVideo) ? `![${pendingFile.name}](${publicUrl})` : `📁 **Arquivo anexado:** [${pendingFile.name}](${publicUrl})`;
+        
+        finalContent = finalContent ? `${finalContent}\n\n${markdownContent}` : markdownContent;
+      } catch (err) {
+        console.error(err);
+        setIsUploading(false);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('task_updates').insert([
-      { task_id: taskDetailsOpen.id, content: newUpdateText }
+      { 
+        task_id: taskDetailsOpen.id, 
+        content: finalContent,
+        author_email: userProfile?.email || 'Usuário'
+      }
     ]);
+
     if (!error) {
       setNewUpdateText('');
+      setPendingFile(null);
       refetchUpdates();
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+
+      if (taskDetailsOpen.assignee_email) {
+        const emails = taskDetailsOpen.assignee_email.split(',').map((e: string) => e.trim()).filter(Boolean);
+        const notifications = emails.map((email: string) => ({
+          user_email: email,
+          message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
+          task_id: taskDetailsOpen.id
+        }));
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      }
+    }
+    
+    setIsUploading(false);
+  };
+
+  const deleteUpdate = async (updateId: string, content: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta atualização?')) return;
+    
+    const urlMatch = content.match(/\]\((https:\/\/[^)]+)\)/);
+    if (urlMatch) {
+      const fullUrl = urlMatch[1];
+      const urlParts = fullUrl.split('/attachments/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('attachments').remove([filePath]);
+      }
+    }
+
+    const { error } = await supabase.from('task_updates').delete().eq('id', updateId);
+    
+    const isAttachment = urlMatch !== null;
+    await supabase.from('activity_logs').insert([{
+      task_id: taskDetailsOpen.id,
+      user_email: userProfile?.email || 'Usuário',
+      action: isAttachment ? 'excluiu um anexo' : 'excluiu um comentário'
+    }]);
+
+    if (!error) {
+      refetchUpdates();
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', taskDetailsOpen.id] });
     }
   };
 
@@ -322,7 +425,18 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', boardId] })
   });
 
+  const [activeDragTask, setActiveDragTask] = useState<any>(null);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const task = rawTasks?.find((t: any) => t.id === active.id);
+    if (task) {
+      setActiveDragTask(task);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragTask(null);
     const { active, over } = event;
     if (over) {
       const taskId = active.id as string;
@@ -332,6 +446,10 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         updateTaskDate.mutate({ id: taskId, date: newDate });
       }
     }
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragTask(null);
   };
 
   return (
@@ -411,18 +529,22 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       </div>
 
       {/* Grade do Calendário */}
-      <div className="flex-1 flex flex-col min-h-0 bg-white">
-        {/* Cabeçalho dos Dias */}
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-white z-10 shrink-0">
-          {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(day => (
-            <div key={day} className="py-2 text-center text-[13px] font-medium text-slate-700 border-r border-slate-100 last:border-0">
-              {day}
-            </div>
-          ))}
-        </div>
-        
-        {/* Dias do Mês/Semana */}
-        <DndContext onDragEnd={handleDragEnd}>
+      <DndContext 
+        onDragStart={handleDragStart} 
+        onDragEnd={handleDragEnd} 
+        onDragCancel={handleDragCancel}
+      >
+        <div className="flex-1 flex flex-col min-h-0 bg-white">
+          {/* Cabeçalho dos Dias */}
+          <div className="grid grid-cols-7 border-b border-slate-200 bg-white z-10 shrink-0">
+            {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(day => (
+              <div key={day} className="py-2 text-center text-[13px] font-medium text-slate-700 border-r border-slate-100 last:border-0">
+                {day}
+              </div>
+            ))}
+          </div>
+          
+          {/* Dias do Mês/Semana */}
           <div className={`flex-1 grid grid-cols-7 ${viewType === 'Mês' ? 'grid-rows-6' : 'grid-rows-1'}`}>
             {daysToRender.map((dayObj, i) => {
               const dateString = dayObj.date.toISOString().split('T')[0];
@@ -440,47 +562,153 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
               );
             })}
           </div>
-        </DndContext>
-      </div>
+        </div>
+
+        <DragOverlay>
+          {activeDragTask ? <TaskChip task={activeDragTask} isOverlay={true} /> : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Gaveta de Tarefa (Reaproveitada para o Calendário) */}
-      {taskDetailsOpen && (
+      {taskDetailsOpen && (() => {
+        const activeTask = rawTasks?.find((t: any) => t.id === taskDetailsOpen.id) || taskDetailsOpen;
+        return (
         <>
           <div className="fixed inset-0 bg-slate-900/20 z-40" onClick={() => setTaskDetailsOpen(null)}></div>
           <div className="fixed top-0 right-0 h-screen w-[600px] bg-white shadow-2xl z-50 border-l border-slate-200 flex flex-col animate-in slide-in-from-right-full">
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-2xl font-bold text-slate-800">{taskDetailsOpen.title}</h2>
-                <div className="flex items-center gap-2 text-slate-500 text-sm mt-1 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 w-fit">
-                   <CalendarIcon className="w-4 h-4" />
-                   <span>Prazo:</span>
-                   <input 
-                     type="date" 
-                     value={taskDetailsOpen.due_date?.split('T')[0] || ''}
-                     onChange={(e) => {
-                       setTaskDetailsOpen({...taskDetailsOpen, due_date: e.target.value});
-                       updateTaskDate.mutate({ id: taskDetailsOpen.id, date: e.target.value });
-                     }}
-                     className="bg-transparent outline-none cursor-pointer hover:text-blue-600 transition-colors text-slate-800 font-medium"
-                   />
+              <div className="flex items-center gap-2 group/title w-full mr-4 relative">
+                <input 
+                  type="text" 
+                  defaultValue={activeTask.title} 
+                  onBlur={async (e) => {
+                    if (e.target.value !== activeTask.title) {
+                      const { error } = await supabase.from('tasks').update({ title: e.target.value }).eq('id', activeTask.id);
+                      if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                    }
+                  }}
+                  className="text-2xl font-bold text-slate-800 bg-transparent outline-none w-full hover:bg-slate-50 px-2 py-1 rounded transition-colors"
+                />
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MessageSquare className="w-5 h-5" /></button>
+                <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MoreHorizontal className="w-5 h-5" /></button>
+                <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Edição Rápida de Campos */}
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex gap-6">
+              <div className="flex flex-col gap-2 w-32 relative z-20">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
+                <div className="w-full h-8"><StatusCell task={activeTask} /></div>
+              </div>
+              <div className="flex flex-col gap-2 w-32 relative z-10">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prioridade</span>
+                <div className="w-full h-8"><PriorityCell task={activeTask} /></div>
+              </div>
+              <div className="flex flex-col gap-2 w-32 relative z-10">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prazo</span>
+                <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
+                  <span className={activeTask.due_date ? 'text-slate-700' : 'text-slate-400'}>
+                    {activeTask.due_date ? new Date(activeTask.due_date).toLocaleDateString('pt-BR') : '-'}
+                  </span>
+                  <input 
+                    type="date" 
+                    defaultValue={activeTask.due_date || ''}
+                    onChange={async (e) => {
+                      const { error } = await supabase.from('tasks').update({ due_date: e.target.value }).eq('id', activeTask.id);
+                      if (!error) {
+                        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
                 </div>
               </div>
-              <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              <div className="flex flex-col gap-2 w-16 items-center relative z-20">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pessoa</span>
+                <div className="w-8 h-8"><AssigneeCell task={activeTask} /></div>
+              </div>
+            </div>
+
+            <div className="flex gap-6 px-6 border-b border-slate-100 text-sm font-medium text-slate-500 pt-4">
+              <button 
+                onClick={() => setDrawerTab('updates')}
+                className={`pb-3 border-b-2 flex items-center gap-2 ${drawerTab === 'updates' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+              >
+                <MessageSquare className="w-4 h-4" /> Atualizações
+              </button>
+              <button 
+                onClick={() => setDrawerTab('files')}
+                className={`pb-3 border-b-2 flex items-center gap-2 ${drawerTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+              >
+                <Paperclip className="w-4 h-4" /> Arquivos
+              </button>
+              <button 
+                onClick={() => setDrawerTab('activity')}
+                className={`pb-3 border-b-2 flex items-center gap-2 ${drawerTab === 'activity' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+              >
+                <Activity className="w-4 h-4" /> Log de atividade
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-8">
-                <textarea 
-                  value={newUpdateText}
-                  onChange={(e) => setNewUpdateText(e.target.value)}
-                  placeholder="Escreva uma atualização..." 
-                  className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
-                ></textarea>
-                <div className="flex justify-end mt-2">
-                  <button onClick={postUpdate} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors">
-                    Atualizar
+              {drawerTab === 'updates' && (
+                <>
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-8">
+                    <div className="flex items-center gap-4 text-slate-400 border-b border-slate-100 pb-3 mb-3 text-sm">
+                  <button className="hover:text-slate-700 font-bold">B</button>
+                  <button className="hover:text-slate-700 italic">I</button>
+                  <button className="hover:text-slate-700 underline">U</button>
+                  <div className="w-px h-4 bg-slate-200"></div>
+                  <label className="hover:text-slate-700 cursor-pointer">
+                    <Paperclip className="w-4 h-4" />
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setPendingFile(file);
+                      }}
+                    />
+                  </label>
+                </div>
+                {pendingFile && (
+                  <div className="flex items-center gap-2 mb-3 bg-blue-50 text-blue-700 px-3 py-2 rounded border border-blue-100 text-sm">
+                    <Paperclip className="w-4 h-4" />
+                    <span className="flex-1 truncate">{pendingFile.name}</span>
+                    <button onClick={() => setPendingFile(null)} className="hover:text-blue-900"><X className="w-4 h-4" /></button>
+                  </div>
+                )}
+                <div className="relative">
+                  <textarea 
+                    value={newUpdateText}
+                    onChange={(e) => setNewUpdateText(e.target.value)}
+                    placeholder="Escreva uma atualização..." 
+                    className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
+                    disabled={isUploading}
+                  ></textarea>
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-white/50 flex flex-col items-center justify-center gap-2 rounded">
+                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-blue-600">Enviando anexo...</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <div className="flex gap-2">
+                    <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded"><span className="text-xs font-bold">@</span></button>
+                    <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded text-xs">GIF</button>
+                  </div>
+                  <button 
+                    onClick={postUpdate}
+                    disabled={isUploading}
+                    className={`${isUploading ? 'bg-slate-300' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-2`}
+                  >
+                    {isUploading ? 'Aguarde...' : 'Atualizar'}
                   </button>
                 </div>
               </div>
@@ -488,14 +716,45 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
               {taskUpdates && taskUpdates.length > 0 ? (
                 <div className="flex flex-col gap-4">
                   {taskUpdates.map((update: any) => (
-                    <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative group/update">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover/update:opacity-100 transition-opacity flex gap-2">
+                         <button 
+                            onClick={() => deleteUpdate(update.id, update.content)} 
+                            className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" 
+                            title="Excluir"
+                         >
+                            <Trash2 className="w-4 h-4" />
+                         </button>
+                      </div>
+                      <div className="flex items-center gap-3 mb-3">
+                        {(() => {
+                          const authorEmail = update.author_email;
+                          const profile = workspaceUsers?.find((p: any) => p.email === authorEmail);
+                          const avatarSrc = profile?.avatar_url || (authorEmail ? `https://api.dicebear.com/7.x/notionists/svg?seed=${authorEmail}` : null);
+                          
+                          if (avatarSrc) {
+                            return <img src={avatarSrc} className="w-8 h-8 rounded-full border border-slate-200 object-cover" />;
+                          }
+                          return (
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                              U
+                            </div>
+                          );
+                        })()}
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800">{update.author_email ? update.author_email.split('@')[0] : 'Usuário'}</h4>
+                          <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
+                        </div>
+                      </div>
                       <div 
                         className="text-sm text-slate-700 whitespace-pre-wrap"
                         dangerouslySetInnerHTML={{
                           __html: update.content
                             .replace(/</g, '&lt;').replace(/>/g, '&gt;')
                             .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match: string, alt: string, url: string) => {
-                              if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) return `<video src="${url}" controls class="max-w-full rounded-lg mt-2 max-h-96 border border-slate-200 shadow-sm"></video>`;
+                              if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) {
+                                return `<video src="${url}" controls class="max-w-full rounded-lg mt-2 max-h-96 border border-slate-200 shadow-sm"></video>`;
+                              }
                               return `<img src="${url}" alt="${alt}" class="max-w-full rounded-lg mt-2 max-h-64 object-cover border border-slate-200 shadow-sm" />`;
                             })
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
@@ -506,13 +765,73 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center mt-12 text-slate-400">
-                  <p className="text-sm max-w-xs">Nenhuma atualização ainda.</p>
+                  <div className="w-32 h-32 mb-4 opacity-50 relative">
+                     <div className="absolute inset-0 bg-blue-100 rounded-2xl flex items-center justify-center">
+                       <MessageSquare className="w-12 h-12 text-blue-300" />
+                     </div>
+                  </div>
+                  <h3 className="text-slate-800 font-bold text-lg mb-1">Nenhuma atualização ainda</h3>
+                  <p className="text-sm max-w-xs">Compartilhe o progresso, mencione um colega ou carregue um arquivo para dar andamento às coisas.</p>
+                </div>
+              )}
+              </>
+              )}
+
+              {drawerTab === 'files' && (
+                <div className="flex flex-col gap-6">
+                  <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-blue-200 bg-blue-50/50 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors">
+                    <Paperclip className="w-8 h-8 text-blue-400 mb-2" />
+                    <span className="text-sm font-medium text-blue-700">Clique para anexar arquivo</span>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setPendingFile(file);
+                        setDrawerTab('updates');
+                      }}
+                    />
+                  </label>
+
+                  {taskUpdates && taskUpdates.some((u: any) => u.content.includes('](')) ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {taskUpdates.filter((u: any) => u.content.includes('](')).map((update: any) => {
+                        const urlMatch = update.content.match(/\]\(([^)]+)\)/);
+                        const nameMatch = update.content.match(/\[([^\]]+)\]/);
+                        const url = urlMatch ? urlMatch[1] : '#';
+                        const name = nameMatch ? nameMatch[1] : 'Arquivo';
+                        const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) != null;
+                        const isVideo = url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i) != null;
+
+                        return (
+                          <a key={'file-'+update.id} href={url} target="_blank" className="border border-slate-200 rounded-lg overflow-hidden hover:border-blue-400 transition-colors flex flex-col group bg-white shadow-sm">
+                            <div className="h-24 bg-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100">
+                              {isImage ? (
+                                <img src={url} alt={name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                              ) : isVideo ? (
+                                <video src={url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted preload="metadata" />
+                              ) : (
+                                <FileText className="w-8 h-8 text-slate-300" />
+                              )}
+                            </div>
+                            <div className="p-2 text-xs font-medium text-slate-700 truncate" title={name}>
+                              {name}
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-400 py-8">Nenhum arquivo anexado ainda.</div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </>
-      )}
+        );
+      })}
       {/* Modal de Criar Tarefa no Dia */}
       {creatingTaskDate && (
         <>
