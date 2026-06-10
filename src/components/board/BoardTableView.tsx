@@ -312,19 +312,28 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   });
 
   const groupedTasks = filteredTasks?.reduce((acc: any, task: any) => {
-    const groupName = task.group_name || 'Este mês';
+    const groupName = task.group_name || 'Tarefas pendentes';
     if (!acc[groupName]) acc[groupName] = [];
     acc[groupName].push(task);
     return acc;
   }, {}) || {};
 
-  const groupsToRender = Object.keys(groupedTasks).length > 0 
-    ? Object.keys(groupedTasks) 
-    : ['Este mês', 'Próximo mês'];
+  const predefinedGroups = ['Tarefas pendentes', 'Concluído'];
+  const allGroups = Array.from(new Set([...predefinedGroups, ...Object.keys(groupedTasks)]));
+  const groupsToRender = allGroups;
 
   const getGroupColor = (groupName: string) => {
-    if (groupName === 'Próximo mês') return { text: 'text-[#a25ddc]', bg: '#a25ddc' };
-    return { text: 'text-[#579bfc]', bg: '#579bfc' };
+    if (groupName === 'Concluído') return { text: 'text-[#00c875]', bg: '#00c875' };
+    if (groupName === 'Tarefas pendentes') return { text: 'text-[#579bfc]', bg: '#579bfc' };
+    
+    // Cores dinâmicas para grupos criados
+    const colors = [
+      { text: 'text-[#fdab3d]', bg: '#fdab3d' },
+      { text: 'text-[#e2445c]', bg: '#e2445c' },
+      { text: 'text-[#a25ddc]', bg: '#a25ddc' },
+      { text: 'text-[#0086c0]', bg: '#0086c0' }
+    ];
+    return colors[groupName.length % colors.length];
   };
 
   const renderGroup = (title: string, groupTasks: any[]) => {
@@ -391,12 +400,13 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           <input 
                             type="text" 
                             defaultValue={task.title} 
+                            title={task.title}
                             onBlur={(e) => {
                               if (e.target.value !== task.title) {
                                 updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
                               }
                             }}
-                            className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text"
+                            className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text truncate"
                           />
                           <div className="flex items-center gap-1 bg-transparent px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
                             <button 
@@ -529,7 +539,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     <div className="w-full h-full relative flex flex-col">
       {/* Toolbar */}
       <div className="px-8 py-4 flex items-center gap-4 border-b border-slate-200 bg-white shrink-0">
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[14px] font-medium transition-colors shadow-sm">
+        <button 
+          onClick={handleCreateItem}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[14px] font-medium transition-colors shadow-sm"
+        >
           Novo Item
         </button>
         

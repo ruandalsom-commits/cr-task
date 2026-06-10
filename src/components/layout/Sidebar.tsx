@@ -35,30 +35,31 @@ export function Sidebar() {
   const displayName = userProfile?.email ? userProfile.email.split('@')[0] : 'Usuário';
 
   return (
-    <div className={`relative bg-white border-slate-200 flex flex-col z-10 hidden md:flex shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-0 border-r-0' : 'w-64 border-r'}`}>
+    <div className={`relative bg-[#f7f8f9] border-slate-200 flex flex-col z-40 hidden md:flex shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-4 border-r-0 hover:bg-slate-200 cursor-pointer' : 'w-[260px] border-r'}`}
+         onClick={() => isCollapsed && setIsCollapsed(false)}>
       
       {/* Botão de Toggle */}
       <button 
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute top-6 -right-3 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-600 shadow-sm z-50 transition-colors"
+        onClick={(e) => { e.stopPropagation(); setIsCollapsed(!isCollapsed); }}
+        className={`absolute top-6 -right-3 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-600 shadow-sm z-[100] transition-transform ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
       >
-        {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <div className={`flex flex-col h-full w-64 overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-orange-500 text-white flex items-center justify-center font-bold">
+      <div className={`flex flex-col h-full w-[260px] overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0 hover:bg-slate-100/50 transition-colors cursor-pointer group">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
               {initial}
             </div>
-            <div className="flex-1 overflow-hidden">
-              <h3 className="font-bold text-[14px] leading-tight truncate">{displayName}</h3>
-              <span className="text-xs text-slate-500">Workspace</span>
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <h3 className="font-bold text-[15px] text-[#323338] leading-tight truncate">{displayName}</h3>
+              <span className="text-[12px] text-slate-500 font-medium mt-0.5">Workspace</span>
             </div>
           </div>
           <button 
-            onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all shrink-0"
+            onClick={(e) => { e.stopPropagation(); handleLogout(); }}
+            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all shrink-0 opacity-0 group-hover:opacity-100"
             title="Sair da Conta"
           >
             <LogOut className="w-4 h-4" />
