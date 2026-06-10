@@ -336,6 +336,24 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     return colors[groupName.length % colors.length];
   };
 
+  const handleCreateItem = async () => {
+    const defaultGroup = 'Tarefas pendentes';
+    const position = (groupedTasks[defaultGroup]?.length || 0) + 1;
+    const { error } = await supabase.from('tasks').insert([
+      { 
+        title: 'Nova Tarefa', 
+        board_id: boardId, 
+        group_name: defaultGroup, 
+        position: position 
+      }
+    ]);
+    if (error) {
+      alert('Erro ao criar tarefa: ' + error.message);
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+    }
+  };
+
   const renderGroup = (title: string, groupTasks: any[]) => {
     const colors = getGroupColor(title);
     
