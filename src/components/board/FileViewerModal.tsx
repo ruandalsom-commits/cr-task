@@ -21,9 +21,10 @@ export function FileViewerModal({ file, onClose, taskTitle }: FileViewerModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col animate-in fade-in zoom-in-95 duration-200">
-      {/* Top Header */}
-      <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="bg-white w-full max-w-[1400px] h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
+        {/* Top Header */}
+        <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-green-100 text-green-700 rounded flex items-center justify-center">
             <FileText className="w-5 h-5" />
@@ -101,6 +102,7 @@ export function FileViewerModal({ file, onClose, taskTitle }: FileViewerModalPro
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }
