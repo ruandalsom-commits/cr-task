@@ -184,7 +184,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
           </KanbanColumn>
         ))}
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeTask ? <KanbanCard task={activeTask} isOverlay /> : null}
         </DragOverlay>
       </DndContext>

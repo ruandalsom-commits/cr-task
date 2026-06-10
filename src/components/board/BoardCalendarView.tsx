@@ -47,7 +47,7 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
          e.stopPropagation();
          onClick?.();
       }}
-      className={`text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing' : ''}`}
+      className={`text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
       title={task.title}
     >
       {task.title}
@@ -573,7 +573,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           </div>
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeDragTask ? <TaskChip task={activeDragTask} isOverlay={true} /> : null}
         </DragOverlay>
       </DndContext>
