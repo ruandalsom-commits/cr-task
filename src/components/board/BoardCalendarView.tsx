@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type, MessageSquare, MoreHorizontal, X, Paperclip, Activity, Trash2 } from 'lucide-react';
 
-import { DndContext, DragEndEvent, DragStartEvent, useDraggable, useDroppable, DragOverlay } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragStartEvent, useDraggable, useDroppable, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { StatusCell } from './StatusCell';
 import { PriorityCell } from './PriorityCell';
 import { AssigneeCell } from './AssigneeCell';
@@ -427,6 +427,14 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const [activeDragTask, setActiveDragTask] = useState<any>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const task = rawTasks?.find((t: any) => t.id === active.id);
@@ -530,6 +538,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
       {/* Grade do Calendário */}
       <DndContext 
+        sensors={sensors}
         onDragStart={handleDragStart} 
         onDragEnd={handleDragEnd} 
         onDragCancel={handleDragCancel}
