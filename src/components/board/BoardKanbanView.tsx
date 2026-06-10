@@ -18,6 +18,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates } from '@dnd-ki
 import { useState, useEffect } from 'react';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
+import { Reactions } from './Reactions';
 
 const STATUSES = ['Pendente', 'Trabalhando', 'Travado', 'Feito'];
 
@@ -239,6 +240,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
                         }}
                       />
+                      <Reactions updateId={update.id} reactions={update.reactions} />
                     </div>
                   ))}
                 </div>

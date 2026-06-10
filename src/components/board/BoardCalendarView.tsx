@@ -8,6 +8,7 @@ import { DndContext, DragEndEvent, DragStartEvent, useDraggable, useDroppable, D
 import { StatusCell } from './StatusCell';
 import { PriorityCell } from './PriorityCell';
 import { AssigneeCell } from './AssigneeCell';
+import { Reactions } from './Reactions';
 
 const STATUS_COLORS: any = {
   'Feito': 'bg-[#00c875]',
@@ -769,6 +770,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
                         }}
                       />
+                      <Reactions updateId={update.id} reactions={update.reactions} />
                     </div>
                   ))}
                 </div>
