@@ -14,14 +14,21 @@ const STATUS_COLORS: any = {
 };
 
 function TaskChip({ task, onClick }: any) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
     id: task.id,
     data: { task }
   });
   const bgColor = STATUS_COLORS[task.status] || STATUS_COLORS['Pendente'];
+  
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: isDragging ? 999 : 1,
+  } : undefined;
+
   return (
     <div 
       ref={setNodeRef}
+      style={style}
       {...listeners}
       {...attributes}
       onClick={(e) => {
@@ -29,7 +36,7 @@ function TaskChip({ task, onClick }: any) {
          e.stopPropagation();
          onClick();
       }}
-      className={`text-[11px] px-2 py-1 cursor-pointer truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor} ${isDragging ? 'opacity-50' : ''}`}
+      className={`text-[11px] px-2 py-1 cursor-pointer truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor} ${isDragging ? 'opacity-50 relative' : ''}`}
       title={task.title}
     >
       {task.title}
@@ -117,13 +124,22 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const createTask = useMutation({
     mutationFn: async (title: string) => {
+      let dateStr = null;
+      if (creatingTaskDate) {
+        // Adjust for timezone to get the correct local date string
+        const d = new Date(creatingTaskDate.getTime());
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        dateStr = d.toISOString().split('T')[0];
+      }
+
       const { data, error } = await supabase.from('tasks').insert([
         { 
           board_id: boardId,
           title,
           group_name: 'Este mês',
           status: 'Pendente',
-          due_date: creatingTaskDate?.toISOString().split('T')[0]
+          due_date: dateStr,
+          position: (rawTasks?.length || 0) + 1
         }
       ]).select();
       if (error) throw error;
