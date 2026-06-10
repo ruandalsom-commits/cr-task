@@ -250,13 +250,50 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
 
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
               <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-8">
-                <textarea 
-                  value={newUpdateText}
-                  onChange={(e) => setNewUpdateText(e.target.value)}
-                  placeholder="Escreva uma atualização..." 
-                  className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
-                ></textarea>
-                <div className="flex justify-end mt-2">
+                <div className="relative">
+                  {(() => {
+                    const lastWord = newUpdateText.split(/[\s\n]+/).pop() || '';
+                    if (lastWord.startsWith('@')) {
+                      const search = lastWord.substring(1).toLowerCase();
+                      const filtered = workspaceUsers?.filter((u: any) => u.email.toLowerCase().startsWith(search));
+                      if (filtered && filtered.length > 0) {
+                        return (
+                          <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden z-50">
+                            <div className="bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-500 border-b border-slate-200">
+                              Membros
+                            </div>
+                            {filtered.map((u: any) => (
+                              <button
+                                key={u.id}
+                                onClick={() => {
+                                  const newText = newUpdateText.substring(0, newUpdateText.length - lastWord.length) + `@${u.email.split('@')[0]} `;
+                                  setNewUpdateText(newText);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100 last:border-0 transition-colors"
+                              >
+                                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                                  {u.email.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm text-slate-700 truncate">{u.email.split('@')[0]}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      }
+                    }
+                    return null;
+                  })()}
+                  <textarea 
+                    value={newUpdateText}
+                    onChange={(e) => setNewUpdateText(e.target.value)}
+                    placeholder="Escreva uma atualização..." 
+                    className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
+                  ></textarea>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <div className="flex gap-2">
+                    <button onClick={() => setNewUpdateText(prev => prev + '@')} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded transition-colors"><span className="text-xs font-bold">@</span></button>
+                  </div>
                   <button 
                     onClick={postUpdate}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
