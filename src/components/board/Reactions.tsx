@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { SmilePlus } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 
 const EMOJIS = ['👍', '👎', '❤️', '😂', '🎉', '👀', '🚀', '✅', '🔥', '🤔'];
 
