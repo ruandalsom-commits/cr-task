@@ -39,6 +39,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
   const [newUpdateText, setNewUpdateText] = useState('');
   const [drawerTab, setDrawerTab] = useState<'updates' | 'files' | 'activity'>('updates');
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -335,8 +336,6 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     ];
     return colors[groupName.length % colors.length];
   };
-
-  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
 
   const toggleGroupCollapse = (groupName: string) => {
     setCollapsedGroups(prev => 
