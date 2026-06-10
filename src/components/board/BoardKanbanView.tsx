@@ -19,6 +19,7 @@ import { useState, useEffect } from 'react';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { Reactions } from './Reactions';
+import { UpdateContent } from './UpdateContent';
 
 const STATUSES = ['Pendente', 'Trabalhando', 'Travado', 'Feito'];
 
@@ -323,20 +324,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
                 <div className="flex flex-col gap-4">
                   {taskUpdates.map((update: any) => (
                     <div key={update.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                      <div 
-                        className="text-sm text-slate-700 whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{
-                          __html: update.content
-                            .replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match: string, alt: string, url: string) => {
-                              if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) {
-                                return `<video src="${url}" controls class="max-w-full rounded-lg mt-2 max-h-96 border border-slate-200 shadow-sm"></video>`;
-                              }
-                              return `<img src="${url}" alt="${alt}" class="max-w-full rounded-lg mt-2 max-h-64 object-cover border border-slate-200 shadow-sm" />`;
-                            })
-                            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
-                        }}
-                      />
+                      <UpdateContent content={update.content} taskTitle={taskDetailsOpen.title} />
                       <Reactions 
                         updateId={update.id} 
                         reactions={update.reactions} 

@@ -7,6 +7,7 @@ import { StatusCell } from './StatusCell';
 import { PriorityCell } from './PriorityCell';
 import { AssigneeCell } from './AssigneeCell';
 import { Reactions } from './Reactions';
+import { UpdateContent } from './UpdateContent';
 import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal, MessageCirclePlus, AlertCircle, CheckCircle2, Search, UserPlus, Sparkles, FileText, Calendar } from 'lucide-react';
 
 const TimelineBar = ({ progress, color }: { progress: number, color: string }) => (
@@ -884,12 +885,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
                     disabled={isUploading}
                   ></textarea>
-                  {isUploading && (
-                    <div className="absolute inset-0 bg-white/50 flex flex-col items-center justify-center gap-2 rounded">
-                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-xs font-bold text-blue-600">Enviando anexo...</span>
-                    </div>
-                  )}
+                  {/* Spinner Overlay Removed - Using Toast Below */}
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex gap-2">
@@ -939,20 +935,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                           <span className="text-xs text-slate-400">{new Date(update.created_at).toLocaleString()}</span>
                         </div>
                       </div>
-                      <div 
-                        className="text-sm text-slate-700 whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{
-                          __html: update.content
-                            .replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match: string, alt: string, url: string) => {
-                              if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)) {
-                                return `<video src="${url}" controls class="max-w-full rounded-lg mt-2 max-h-96 border border-slate-200 shadow-sm"></video>`;
-                              }
-                              return `<img src="${url}" alt="${alt}" class="max-w-full rounded-lg mt-2 max-h-64 object-cover border border-slate-200 shadow-sm" />`;
-                            })
-                            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
-                        }}
-                      />
+                      <UpdateContent content={update.content} taskTitle={taskDetailsOpen.title} />
                       <Reactions 
                         updateId={update.id} 
                         reactions={update.reactions} 
@@ -975,6 +958,35 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 </div>
               )}
               </>
+              )}
+
+              {/* Upload Toast */}
+              {isUploading && pendingFile && (
+                <div className="absolute bottom-4 right-6 w-80 bg-white shadow-2xl rounded-lg border border-slate-200 z-[100] animate-in slide-in-from-bottom-5">
+                  <div className="flex items-center justify-between p-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-white"><CheckCircle2 className="w-3 h-3" /></div>
+                      <span className="text-sm font-medium">1 arquivo sendo adicionado</span>
+                    </div>
+                    <button className="text-slate-400 hover:bg-slate-100 p-1 rounded transition-colors" onClick={() => setIsUploading(false)}><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="p-4 flex gap-3">
+                    <div className="w-12 h-12 bg-blue-600 text-white flex items-center justify-center rounded shrink-0">
+                      <Paperclip className="w-6 h-6" />
+                    </div>
+                    <div className="flex flex-col flex-1 overflow-hidden">
+                      <span className="text-sm font-bold text-slate-800 truncate">{pendingFile.name}</span>
+                      <span className="text-xs text-slate-500 truncate">Workspace Principal &gt; {taskDetailsOpen.title}</span>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-xs text-slate-400">{(pendingFile.size / 1024 / 1024).toFixed(2)}MB</span>
+                        <span className="text-xs text-slate-500 font-medium">Enviando...</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-1 bg-slate-100 rounded-b-lg overflow-hidden relative">
+                     <div className="absolute inset-y-0 left-0 bg-green-500 animate-[pulse_1s_ease-in-out_infinite] w-full"></div>
+                  </div>
+                </div>
               )}
 
               {drawerTab === 'files' && (
