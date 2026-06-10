@@ -831,7 +831,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           </div>
         </>
         );
-      })}
+      })()}
       {/* Modal de Criar Tarefa no Dia */}
       {creatingTaskDate && (
         <>
