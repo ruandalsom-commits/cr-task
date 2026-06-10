@@ -40,15 +40,18 @@ export function StatusCell({ task }: { task: any }) {
 
   const updateStatus = useMutation({
     mutationFn: async (newStatus: string) => {
-      const updates: any = { status: newStatus };
+      const payloadToUpdate: any = { status: newStatus };
       if (newStatus === 'Feito') {
-        updates.group_name = 'Concluído';
+        payloadToUpdate.group_name = 'Concluído';
       } else {
-        updates.group_name = 'Tarefas pendentes';
+        payloadToUpdate.group_name = 'Tarefas pendentes';
       }
+      
+      console.log('Enviando para o Supabase:', payloadToUpdate);
+      
       const { error } = await supabase
         .from('tasks')
-        .update(updates)
+        .update(payloadToUpdate)
         .eq('id', task.id);
       if (error) throw error;
     },
