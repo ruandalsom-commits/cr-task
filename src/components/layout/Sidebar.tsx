@@ -47,23 +47,10 @@ export function Sidebar() {
       </button>
 
       <div className={`flex flex-col h-full w-[260px] overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between shrink-0 hover:bg-slate-100/50 transition-colors cursor-pointer group">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-              {initial}
-            </div>
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <h3 className="font-bold text-[15px] text-[#323338] leading-tight truncate">{displayName}</h3>
-              <span className="text-[12px] text-slate-500 font-medium mt-0.5">Workspace</span>
-            </div>
-          </div>
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleLogout(); }}
-            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all shrink-0 opacity-0 group-hover:opacity-100"
-            title="Sair da Conta"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+        <div className="p-6 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <h2 className="font-extrabold text-[22px] tracking-tight text-[#323338]">
+            Workspace Principal
+          </h2>
         </div>
         
         <div className="p-4 flex-1 overflow-y-auto">

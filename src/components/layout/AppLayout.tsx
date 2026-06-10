@@ -15,7 +15,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden w-full">
-      <aside className="w-16 bg-[#1a1a1a] text-white flex flex-col items-center py-4 shrink-0 z-20">
+      <aside className="w-16 bg-[#1a1a1a] text-white flex flex-col items-center py-4 shrink-0 z-50 relative">
         <div className="w-10 h-10 bg-black rounded-lg mb-8 flex items-center justify-center shadow-lg cursor-pointer overflow-hidden border border-white/10 p-0.5">
           <img src="/logo.png" alt="CR Logo" className="w-full h-full object-contain rounded-md" />
         </div>
