@@ -40,9 +40,13 @@ export function StatusCell({ task }: { task: any }) {
 
   const updateStatus = useMutation({
     mutationFn: async (newStatus: string) => {
+      const updates: any = { status: newStatus };
+      if (newStatus === 'Feito') {
+        updates.group_name = 'Concluído';
+      }
       const { error } = await supabase
         .from('tasks')
-        .update({ status: newStatus })
+        .update(updates)
         .eq('id', task.id);
       if (error) throw error;
     },

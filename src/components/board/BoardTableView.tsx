@@ -336,6 +336,14 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     return colors[groupName.length % colors.length];
   };
 
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups(prev => 
+      prev.includes(groupName) ? prev.filter(name => name !== groupName) : [...prev, groupName]
+    );
+  };
+
   const handleCreateItem = async () => {
     const defaultGroup = 'Tarefas pendentes';
     const position = (groupedTasks[defaultGroup]?.length || 0) + 1;
@@ -351,17 +359,23 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       alert('Erro ao criar tarefa: ' + error.message);
     } else {
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      // Remove do colapso caso esteja fechado
+      setCollapsedGroups(prev => prev.filter(name => name !== defaultGroup));
     }
   };
 
   const renderGroup = (title: string, groupTasks: any[]) => {
     const colors = getGroupColor(title);
+    const isCollapsed = collapsedGroups.includes(title);
     
     return (
       <div key={title} className="mb-8 mt-2">
-        <div className="flex items-center gap-2 mb-1 px-8">
-          <button className={`hover:opacity-80 transition-colors ${colors.text}`}>
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 transform">
+        <div 
+          className="flex items-center gap-2 mb-1 px-8 cursor-pointer group w-max"
+          onClick={() => toggleGroupCollapse(title)}
+        >
+          <button className={`hover:opacity-80 transition-transform ${isCollapsed ? '-rotate-90' : ''} ${colors.text}`}>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
               <path d="M7 10l5 5 5-5z" />
             </svg>
           </button>
@@ -369,6 +383,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
           <span className="text-slate-400 text-sm ml-2">{groupTasks?.length || 0} Tarefas</span>
         </div>
 
+        {!isCollapsed && (
         <div className="px-8 mb-2">
           <style dangerouslySetInnerHTML={{ __html: `
             .date-hack::-webkit-calendar-picker-indicator {
@@ -549,6 +564,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
             </table>
           </div>
         </div>
+        )}
       </div>
     );
   };
