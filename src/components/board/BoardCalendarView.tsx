@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type } from 'lucide-react';
 
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 
@@ -120,6 +120,14 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     refetchInterval: 3000
   });
 
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data: profiles } = await supabase.from('profiles').select('email, avatar_url');
+      return profiles || [];
+    }
+  });
+
   // Lê taskId da URL se houver para abrir a gaveta (igual ao Kanban/Tabela)
   useEffect(() => {
     if (rawTasks && !taskDetailsOpen) {
@@ -144,7 +152,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         dateStr = d.toISOString().split('T')[0];
       }
 
-      const { data, error } = await supabase.from('tasks').insert([
+      // 1. Cria a tarefa
+      const { data: taskData, error: taskError } = await supabase.from('tasks').insert([
         { 
           board_id: boardId,
           title: dataToSave.title || 'Nova Tarefa',
@@ -156,8 +165,27 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           position: (rawTasks?.length || 0) + 1
         }
       ]).select();
-      if (error) throw error;
-      return data;
+      
+      if (taskError) throw taskError;
+      
+      const newTask = taskData?.[0];
+
+      // 2. Se houver notas, insere como comentário em task_updates
+      if (newTask && dataToSave.notes?.trim()) {
+        const { error: updateError } = await supabase.from('task_updates').insert([
+          {
+            task_id: newTask.id,
+            content: dataToSave.notes.trim(),
+            // Se houver um usuário logado disponível, poderia ser o email dele. Aqui usaremos 'Usuário' como default se não tivermos
+            author_email: 'Sistema / Nota Inicial'
+          }
+        ]);
+        if (updateError) {
+          console.error("Erro ao inserir nota inicial como atualização:", updateError);
+        }
+      }
+
+      return taskData;
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
@@ -490,23 +518,31 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         <>
           <div className="fixed inset-0 bg-slate-900/40 z-[60]" onClick={() => setCreatingTaskDate(null)}></div>
           <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl z-[70] w-full max-w-2xl overflow-visible animate-in fade-in zoom-in-95 border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="p-6 pb-4 border-b border-slate-100">
-              <div className="flex items-center justify-between mb-2">
-                <input 
-                  type="text" 
-                  autoFocus
-                  value={newTaskData.title}
-                  onChange={(e) => setNewTaskData({...newTaskData, title: e.target.value})}
-                  className="bg-transparent text-3xl font-bold text-slate-800 placeholder-slate-300 outline-none w-full"
-                  placeholder="Criar Tarefa"
-                />
-                <button onClick={() => setCreatingTaskDate(null)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors absolute top-6 right-6 bg-white p-1.5 rounded-full border border-slate-200 shadow-sm">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                </button>
-              </div>
+            <div className="p-6 pb-4 border-b border-slate-100 relative">
+              <h3 className="text-3xl font-bold text-slate-800">Criar Tarefa</h3>
+              <button onClick={() => setCreatingTaskDate(null)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors absolute top-6 right-6 bg-white p-1.5 rounded-full border border-slate-200 shadow-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
             </div>
 
             <div className="p-6 flex-1 overflow-y-auto space-y-5 bg-slate-50/50">
+              
+              <div className="flex items-center">
+                <div className="w-40 flex items-center gap-3 text-slate-600">
+                  <div className="w-6 h-6 rounded bg-slate-400 flex items-center justify-center"><Type className="w-3 h-3 text-white" /></div>
+                  <span className="font-medium text-[15px]">Nome da Tarefa</span>
+                </div>
+                <div className="flex-1">
+                  <input 
+                    type="text" 
+                    autoFocus
+                    value={newTaskData.title}
+                    onChange={(e) => setNewTaskData({...newTaskData, title: e.target.value})}
+                    className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 w-full outline-none text-[15px] text-slate-800 font-medium focus:ring-1 focus:ring-blue-500 shadow-sm"
+                    placeholder="Nome da Tarefa..."
+                  />
+                </div>
+              </div>
               
               <div className="flex items-center">
                 <div className="w-40 flex items-center gap-3 text-slate-600">
@@ -534,7 +570,16 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 </div>
                 <div className="flex-1">
                   <div className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 flex items-center justify-center cursor-pointer transition-colors w-full relative shadow-sm">
-                    <User className="w-5 h-5 text-slate-400" />
+                    <select 
+                      value={newTaskData.assignee_email || ''}
+                      onChange={(e) => setNewTaskData({...newTaskData, assignee_email: e.target.value})}
+                      className="bg-transparent w-full appearance-none outline-none cursor-pointer text-[15px] font-medium text-slate-800 empty:text-slate-400"
+                    >
+                      <option value="">- Sem responsável -</option>
+                      {workspaceUsers?.map((user: any) => (
+                        <option key={user.email} value={user.email}>{user.email.split('@')[0]}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -602,21 +647,6 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <div className="w-40 flex items-center gap-3 text-slate-600">
-                  <div className="w-6 h-6 rounded bg-[#fdab3d] flex items-center justify-center"><DollarSign className="w-4 h-4 text-white" /></div>
-                  <span className="font-medium text-[15px]">Orçamento</span>
-                </div>
-                <div className="flex-1">
-                  <input 
-                    type="number" 
-                    value={newTaskData.budget}
-                    onChange={(e) => setNewTaskData({...newTaskData, budget: e.target.value})}
-                    className="bg-white border border-slate-200 rounded-md px-4 py-2.5 w-full outline-none text-slate-800 text-[15px] focus:border-blue-400 shadow-sm transition-colors"
-                  />
-                </div>
-              </div>
-
             </div>
             
             <div className="p-5 border-t border-slate-200 flex justify-end gap-3 bg-white rounded-b-xl">
@@ -629,7 +659,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 Salvar e criar outro
               </button>
               <button 
-                disabled={!newTaskData.title.trim() || createTask.isPending}
+                disabled={createTask.isPending}
                 onClick={() => {
                   createTask.mutate({ ...newTaskData, closeOnSuccess: true });
                 }} 
