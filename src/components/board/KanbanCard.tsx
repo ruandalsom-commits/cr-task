@@ -57,8 +57,8 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
       style={style}
       {...attributes}
       {...listeners}
-      className={`bg-white rounded-lg shadow-sm border border-slate-200 p-4 cursor-grab active:cursor-grabbing hover:border-slate-300 transition-all ${
-        isOverlay ? 'scale-105 shadow-xl cursor-grabbing' : ''
+      className={`bg-white rounded-lg shadow-sm border border-slate-200 p-4 cursor-grab active:cursor-grabbing hover:border-slate-300 ${!isDragging && !isOverlay ? 'transition-all' : ''} ${
+        isOverlay ? 'scale-105 shadow-xl rotate-2 opacity-90 cursor-grabbing' : ''
       }`}
     >
       <h4 className="font-semibold text-[#323338] text-[14px] leading-tight mb-3">

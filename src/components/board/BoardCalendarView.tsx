@@ -47,7 +47,7 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
          e.stopPropagation();
          onClick?.();
       }}
-      className={`text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 transition-all shadow-sm ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90' : ''}`}
+      className={`text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing' : ''}`}
       title={task.title}
     >
       {task.title}
