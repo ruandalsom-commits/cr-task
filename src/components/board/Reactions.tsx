@@ -7,7 +7,19 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 
 const EMOJIS = ['👍', '👎', '❤️', '😂', '🎉', '👀', '🚀', '✅', '🔥', '🤔'];
 
-export function Reactions({ updateId, reactions }: { updateId: string, reactions: any }) {
+export function Reactions({ 
+  updateId, 
+  reactions,
+  updateAuthorEmail,
+  taskTitle,
+  taskId
+}: { 
+  updateId: string, 
+  reactions: any,
+  updateAuthorEmail?: string,
+  taskTitle?: string,
+  taskId?: string
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -48,6 +60,8 @@ export function Reactions({ updateId, reactions }: { updateId: string, reactions
       }
 
       const userIndex = currentReacts[emoji].indexOf(userEmail);
+      let isAdding = false;
+
       if (userIndex > -1) {
         currentReacts[emoji].splice(userIndex, 1);
         if (currentReacts[emoji].length === 0) {
@@ -55,6 +69,7 @@ export function Reactions({ updateId, reactions }: { updateId: string, reactions
         }
       } else {
         currentReacts[emoji].push(userEmail);
+        isAdding = true;
       }
 
       const { error } = await supabase
@@ -62,11 +77,18 @@ export function Reactions({ updateId, reactions }: { updateId: string, reactions
         .update({ reactions: currentReacts })
         .eq('id', updateId);
 
-      // Se a coluna ainda não existir no DB, ignoramos o erro no frontend
-      // para não quebrar a aplicação (mas avisamos no console).
       if (error) {
         console.error("Erro ao salvar reação (A coluna 'reactions' JSONB foi criada?):", error);
         throw error;
+      }
+
+      if (isAdding && updateAuthorEmail && updateAuthorEmail !== userEmail && taskId && taskTitle) {
+        const userName = userEmail.split('@')[0];
+        await supabase.from('notifications').insert([{
+          user_email: updateAuthorEmail,
+          message: `${userName} reagiu com ${emoji} à sua atualização em "${taskTitle}"`,
+          task_id: taskId
+        }]);
       }
     },
     onSuccess: () => {

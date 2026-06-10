@@ -63,14 +63,58 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
     enabled: !!taskDetailsOpen?.id
   });
 
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('*');
+      return data || [];
+    }
+  });
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['current_user'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    }
+  });
+
   const postUpdate = async () => {
     if (!newUpdateText.trim() || !taskDetailsOpen) return;
     const { error } = await supabase.from('task_updates').insert([
-      { task_id: taskDetailsOpen.id, content: newUpdateText }
+      { task_id: taskDetailsOpen.id, content: newUpdateText, author_email: userProfile?.email || 'Usuário' }
     ]);
     if (!error) {
       setNewUpdateText('');
       refetchUpdates();
+
+      const emailsToNotify = new Set<string>();
+      if (taskDetailsOpen.assignee_email) {
+        taskDetailsOpen.assignee_email.split(',').forEach((e: string) => {
+          if (e.trim()) emailsToNotify.add(e.trim());
+        });
+      }
+
+      const mentions = newUpdateText.match(/@([a-zA-Z0-9_.-]+)/g) || [];
+      if (mentions.length > 0 && workspaceUsers) {
+        mentions.forEach((mention: string) => {
+          const username = mention.substring(1).toLowerCase();
+          const matchedUser = workspaceUsers.find((u: any) => u.email.toLowerCase().startsWith(username));
+          if (matchedUser) {
+            emailsToNotify.add(matchedUser.email);
+          }
+        });
+      }
+
+      const notifications = Array.from(emailsToNotify).map((email: string) => ({
+        user_email: email,
+        message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
+        task_id: taskDetailsOpen.id
+      }));
+
+      if (notifications.length > 0) {
+        await supabase.from('notifications').insert(notifications);
+      }
     }
   };
 
@@ -240,7 +284,13 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
                         }}
                       />
-                      <Reactions updateId={update.id} reactions={update.reactions} />
+                      <Reactions 
+                        updateId={update.id} 
+                        reactions={update.reactions} 
+                        updateAuthorEmail={update.author_email} 
+                        taskId={taskDetailsOpen.id} 
+                        taskTitle={taskDetailsOpen.title} 
+                      />
                     </div>
                   ))}
                 </div>

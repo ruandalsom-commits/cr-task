@@ -128,19 +128,19 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     refetchInterval: 3000
   });
 
-  const { data: workspaceUsers } = useQuery({
-    queryKey: ['workspace_users'],
-    queryFn: async () => {
-      const { data: profiles } = await supabase.from('profiles').select('email, avatar_url');
-      return profiles || [];
-    }
-  });
-
   const { data: userProfile } = useQuery({
-    queryKey: ['user_profile'],
+    queryKey: ['current_user'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       return user;
+    }
+  });
+
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('*');
+      return data || [];
     }
   });
 
@@ -366,16 +366,32 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       refetchUpdates();
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
 
+      const emailsToNotify = new Set<string>();
       if (taskDetailsOpen.assignee_email) {
-        const emails = taskDetailsOpen.assignee_email.split(',').map((e: string) => e.trim()).filter(Boolean);
-        const notifications = emails.map((email: string) => ({
-          user_email: email,
-          message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
-          task_id: taskDetailsOpen.id
-        }));
-        if (notifications.length > 0) {
-          await supabase.from('notifications').insert(notifications);
-        }
+        taskDetailsOpen.assignee_email.split(',').forEach((e: string) => {
+          if (e.trim()) emailsToNotify.add(e.trim());
+        });
+      }
+
+      const mentions = finalContent.match(/@([a-zA-Z0-9_.-]+)/g) || [];
+      if (mentions.length > 0 && workspaceUsers) {
+        mentions.forEach((mention: string) => {
+          const username = mention.substring(1).toLowerCase();
+          const matchedUser = workspaceUsers.find((u: any) => u.email.toLowerCase().startsWith(username));
+          if (matchedUser) {
+            emailsToNotify.add(matchedUser.email);
+          }
+        });
+      }
+
+      const notifications = Array.from(emailsToNotify).map((email: string) => ({
+        user_email: email,
+        message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
+        task_id: taskDetailsOpen.id
+      }));
+
+      if (notifications.length > 0) {
+        await supabase.from('notifications').insert(notifications);
       }
     }
     
@@ -710,8 +726,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 </div>
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex gap-2">
-                    <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded"><span className="text-xs font-bold">@</span></button>
-                    <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded text-xs">GIF</button>
+                    <button onClick={() => setNewUpdateText(prev => prev + '@')} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded transition-colors"><span className="text-xs font-bold">@</span></button>
+                    <button className="p-1.5 text-slate-400 hover:bg-slate-100 rounded text-xs transition-colors">GIF</button>
                   </div>
                   <button 
                     onClick={postUpdate}
@@ -770,7 +786,13 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-blue-600 hover:underline inline-flex items-center gap-1 font-medium">$1</a>')
                         }}
                       />
-                      <Reactions updateId={update.id} reactions={update.reactions} />
+                      <Reactions 
+                        updateId={update.id} 
+                        reactions={update.reactions} 
+                        updateAuthorEmail={update.author_email} 
+                        taskId={taskDetailsOpen.id} 
+                        taskTitle={taskDetailsOpen.title} 
+                      />
                     </div>
                   ))}
                 </div>
