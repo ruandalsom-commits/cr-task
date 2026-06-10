@@ -31,7 +31,7 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
     return (
       <div 
         ref={setNodeRef}
-        className="text-[11px] px-2 py-1 truncate rounded-sm font-medium border border-slate-200 bg-slate-100 text-transparent opacity-50"
+        className="opacity-0 text-[11px] px-2 py-1"
       >
         {task.title}
       </div>

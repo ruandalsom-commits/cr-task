@@ -41,7 +41,7 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging && !isOverlay ? 0 : 1, // Torna o original invisível para não haver duplicidade
   };
 
   const formatDate = (dateStr: string) => {
