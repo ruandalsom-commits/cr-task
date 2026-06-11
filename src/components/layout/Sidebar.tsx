@@ -5,9 +5,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { LayoutTemplate, Grid, LogOut, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -22,7 +26,12 @@ export function Sidebar() {
 
   useEffect(() => {
     if (workspaces && workspaces.length > 0 && !activeWorkspaceId) {
-      setActiveWorkspaceId(workspaces[0].id);
+      const savedId = localStorage.getItem('monday_active_workspace');
+      if (savedId && workspaces.find(w => w.id === savedId)) {
+        setActiveWorkspaceId(savedId);
+      } else {
+        setActiveWorkspaceId(workspaces[0].id);
+      }
     }
   }, [workspaces, activeWorkspaceId]);
 
@@ -89,10 +98,11 @@ export function Sidebar() {
                   onClick={() => {
                     if (w.id !== activeWorkspaceId) {
                       setActiveWorkspaceId(w.id);
+                      localStorage.setItem('monday_active_workspace', w.id);
                       setIsDropdownOpen(false);
                       // Se estiver numa rota de board, redireciona pro inicio pra não ver as tarefas velhas
-                      if (window.location.pathname.startsWith('/boards/')) {
-                        window.location.href = '/';
+                      if (pathname.startsWith('/boards/')) {
+                        router.push('/');
                       }
                     } else {
                       setIsDropdownOpen(false);
