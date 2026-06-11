@@ -32,7 +32,12 @@ export async function GET(request: Request) {
     for (const profile of profiles) {
       if (!profile.email) continue;
 
-      const userTasks = tasks.filter((t: any) => t.assignee_id === profile.id && t.status !== 'Feito' && t.status !== 'Concluído');
+      const userTasks = tasks.filter((t: any) => 
+        t.assignee_email && 
+        t.assignee_email.includes(profile.email) && 
+        t.status !== 'Feito' && 
+        t.status !== 'Concluído'
+      );
       
       if (userTasks.length === 0) continue;
 
