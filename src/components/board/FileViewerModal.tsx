@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X as CloseIcon, Download, Printer, Trash2, MessageSquare, History, Image as ImageIcon, Info, FileOutput, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 
 interface FileViewerModalProps {
@@ -8,7 +9,14 @@ interface FileViewerModalProps {
 }
 
 export function FileViewerModal({ file, onClose, taskTitle }: FileViewerModalProps) {
-  if (!file) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!file || !mounted) return null;
 
   const getFileIcon = () => {
     if (file.name.endsWith('.csv') || file.name.endsWith('.xlsx')) {
@@ -20,8 +28,8 @@ export function FileViewerModal({ file, onClose, taskTitle }: FileViewerModalPro
     return <div className="w-64 h-48 bg-blue-500 text-white flex items-center justify-center rounded-lg shadow-lg"><FileText className="w-24 h-24" /></div>;
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200" onClick={onClose}>
       <div className="bg-white w-full max-w-[1400px] h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
         {/* Top Header */}
         <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
@@ -101,8 +109,9 @@ export function FileViewerModal({ file, onClose, taskTitle }: FileViewerModalPro
             <span className="text-[10px] font-medium">Extrair</span>
           </button>
         </div>
+        </div>
       </div>
-    </div>
-    </div>
+    </div>,
+    document.body
   );
 }
