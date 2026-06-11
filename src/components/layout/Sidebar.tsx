@@ -87,8 +87,16 @@ export function Sidebar() {
                 <button
                   key={w.id}
                   onClick={() => {
-                    setActiveWorkspaceId(w.id);
-                    setIsDropdownOpen(false);
+                    if (w.id !== activeWorkspaceId) {
+                      setActiveWorkspaceId(w.id);
+                      setIsDropdownOpen(false);
+                      // Se estiver numa rota de board, redireciona pro inicio pra não ver as tarefas velhas
+                      if (window.location.pathname.startsWith('/boards/')) {
+                        window.location.href = '/';
+                      }
+                    } else {
+                      setIsDropdownOpen(false);
+                    }
                   }}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors ${w.id === activeWorkspaceId ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700'}`}
                 >
