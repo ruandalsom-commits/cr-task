@@ -11,8 +11,14 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchFirstBoard() {
-      // Pega o primeiro board que o usuário tem acesso
-      const { data: boards, error } = await supabase.from('boards').select('id').limit(1);
+      const savedId = localStorage.getItem('monday_active_workspace');
+      
+      let query = supabase.from('boards').select('id').limit(1);
+      if (savedId) {
+        query = query.eq('workspace_id', savedId);
+      }
+
+      const { data: boards, error } = await query;
       
       if (error) {
         setError(error.message);
@@ -23,7 +29,7 @@ export default function Home() {
       if (boards && boards.length > 0) {
         router.push(`/boards/${boards[0].id}`);
       } else {
-        setError('Você ainda não tem nenhum Quadro (Board). Peça para o Admin criar uma equipe e um quadro!');
+        setError('Este setor não possui quadros. Crie um quadro no menu lateral ou peça para o administrador adicionar você a outro setor.');
         setLoading(false);
       }
     }

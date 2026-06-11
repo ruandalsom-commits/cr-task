@@ -19,8 +19,18 @@ export function Sidebar() {
   const { data: workspaces } = useQuery({
     queryKey: ['sidebar_workspaces'],
     queryFn: async () => {
-      const { data } = await supabase.from('workspaces').select('*').order('created_at');
-      return data || [];
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      
+      if (profile?.role === 'admin') {
+        const { data } = await supabase.from('workspaces').select('*').order('created_at');
+        return data || [];
+      } else {
+        const { data } = await supabase.from('workspace_members').select('workspaces(*)').eq('user_id', user.id);
+        return data?.map((d: any) => d.workspaces).filter(Boolean) || [];
+      }
     }
   });
 
