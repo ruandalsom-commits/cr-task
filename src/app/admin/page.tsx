@@ -57,7 +57,7 @@ export default function AdminPage() {
   const { data: workspaceMembers } = useQuery({
     queryKey: ['admin_workspace_members'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('workspace_members').select('workspace_id, user_id, profiles(email)');
+      const { data, error } = await supabase.from('workspace_members').select('*');
       if (error) throw error;
       return data;
     },
@@ -217,22 +217,25 @@ export default function AdminPage() {
             <div className="mt-6 border-t border-slate-100 pt-4">
               <h3 className="text-sm font-semibold text-slate-500 mb-2">Quem já está neste setor:</h3>
               <ul className="divide-y divide-slate-100 border border-slate-100 rounded-lg max-h-40 overflow-y-auto">
-                {workspaceMembers?.filter((m: any) => m.workspace_id === selectedWorkspace).map((m: any) => (
-                  <li key={m.user_id} className="p-3 text-sm text-slate-700 flex justify-between items-center">
-                    <span>{m.profiles?.email || 'Usuário desconhecido'}</span>
-                    <button 
-                      onClick={() => {
-                        if(confirm('Tem certeza que deseja remover o acesso deste usuário a este setor?')) {
-                          removeMember.mutate({ workspace_id: selectedWorkspace, user_id: m.user_id });
-                        }
-                      }}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
-                      title="Remover Acesso"
-                    >
-                      Remover
-                    </button>
-                  </li>
-                ))}
+                {workspaceMembers?.filter((m: any) => m.workspace_id === selectedWorkspace).map((m: any) => {
+                  const userProfile = profiles?.find((p: any) => p.id === m.user_id);
+                  return (
+                    <li key={m.user_id} className="p-3 text-sm text-slate-700 flex justify-between items-center">
+                      <span>{userProfile?.email || 'Usuário desconhecido'}</span>
+                      <button 
+                        onClick={() => {
+                          if(confirm('Tem certeza que deseja remover o acesso deste usuário a este setor?')) {
+                            removeMember.mutate({ workspace_id: selectedWorkspace, user_id: m.user_id });
+                          }
+                        }}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+                        title="Remover Acesso"
+                      >
+                        Remover
+                      </button>
+                    </li>
+                  );
+                })}
                 {workspaceMembers?.filter((m: any) => m.workspace_id === selectedWorkspace).length === 0 && (
                   <li className="p-3 text-sm text-slate-400 italic">Nenhum usuário neste setor ainda.</li>
                 )}
