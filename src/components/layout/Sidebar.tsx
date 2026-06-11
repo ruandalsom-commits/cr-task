@@ -2,20 +2,39 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { LayoutTemplate, Grid, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutTemplate, Grid, LogOut, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const { data: boards, isLoading } = useQuery({
-    queryKey: ['sidebar_boards'],
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const { data: workspaces } = useQuery({
+    queryKey: ['sidebar_workspaces'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('boards').select('*').order('created_at');
+      const { data } = await supabase.from('workspaces').select('*').order('created_at');
+      return data || [];
+    }
+  });
+
+  useEffect(() => {
+    if (workspaces && workspaces.length > 0 && !activeWorkspaceId) {
+      setActiveWorkspaceId(workspaces[0].id);
+    }
+  }, [workspaces, activeWorkspaceId]);
+
+  const { data: boards, isLoading } = useQuery({
+    queryKey: ['sidebar_boards', activeWorkspaceId],
+    queryFn: async () => {
+      if (!activeWorkspaceId) return [];
+      const { data, error } = await supabase.from('boards').select('*').eq('workspace_id', activeWorkspaceId).order('created_at');
       if (error) throw error;
       return data;
-    }
+    },
+    enabled: !!activeWorkspaceId
   });
 
   const { data: userProfile } = useQuery({
@@ -47,10 +66,37 @@ export function Sidebar() {
       </button>
 
       <div className={`flex flex-col h-full w-[260px] overflow-hidden transition-opacity duration-300 ${isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h2 className="font-extrabold text-[22px] tracking-tight text-[#323338]">
-            Workspace Principal
-          </h2>
+        <div className="p-4 border-b border-slate-200 shrink-0 relative">
+          <button 
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full flex items-center justify-between p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <div className="flex flex-col items-start overflow-hidden">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Setor Atual</span>
+              <h2 className="font-extrabold text-[16px] tracking-tight text-[#323338] truncate w-full text-left">
+                {workspaces?.find(w => w.id === activeWorkspaceId)?.name || 'Carregando...'}
+              </h2>
+            </div>
+            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+          </button>
+
+          {isDropdownOpen && (
+            <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-slate-200 shadow-xl rounded-lg z-50 py-2 max-h-64 overflow-y-auto">
+              <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">Alternar Setor</div>
+              {workspaces?.map(w => (
+                <button
+                  key={w.id}
+                  onClick={() => {
+                    setActiveWorkspaceId(w.id);
+                    setIsDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors ${w.id === activeWorkspaceId ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700'}`}
+                >
+                  {w.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="p-4 flex-1 overflow-y-auto">
@@ -62,16 +108,13 @@ export function Sidebar() {
             <button 
               onClick={async () => {
                 const name = prompt('Nome do novo quadro:');
-                if (name) {
-                  const { data: ws } = await supabase.from('workspaces').select('id').limit(1);
-                  if (ws && ws.length > 0) {
-                    const { data, error } = await supabase.from('boards').insert([{ name, workspace_id: ws[0].id }]).select();
-                    if (!error && data) {
-                      window.location.href = `/boards/${data[0].id}`;
-                    }
-                  } else {
-                    alert('Você precisa criar uma Área de Trabalho primeiro!');
+                if (name && activeWorkspaceId) {
+                  const { data, error } = await supabase.from('boards').insert([{ name, workspace_id: activeWorkspaceId }]).select();
+                  if (!error && data) {
+                    window.location.href = `/boards/${data[0].id}`;
                   }
+                } else if (!activeWorkspaceId) {
+                  alert('Selecione um setor primeiro!');
                 }
               }}
               className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-blue-600 transition-all shrink-0"

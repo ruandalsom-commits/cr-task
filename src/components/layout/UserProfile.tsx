@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { LogOut, Upload, User, Image as ImageIcon } from 'lucide-react';
+import { LogOut, Upload, User, Image as ImageIcon, ShieldCheck } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -166,9 +166,19 @@ export function UserProfile() {
                 disabled={uploading}
                 className="hidden" 
               />
-            </label>
-            
-            <button 
+              </label>
+              
+              {profile?.role === 'admin' && (
+                <a 
+                  href="/admin"
+                  className="flex items-center gap-3 w-full p-2 hover:bg-blue-50 hover:text-blue-700 rounded-lg text-sm text-slate-700 transition-colors mt-1 border-t border-slate-100"
+                >
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span className="font-semibold text-blue-700">Painel de Administração</span>
+                </a>
+              )}
+              
+              <button 
               onClick={handleSignOut}
               className="flex items-center gap-3 w-full p-2 hover:bg-red-50 hover:text-red-600 rounded-lg text-sm text-slate-700 transition-colors mt-1"
             >
