@@ -372,7 +372,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-[#676879] text-[14px]">
                 <th className="font-medium px-6 py-3 border-r border-slate-200 w-1/3">Tarefa da Rotina</th>
-                <th className="font-medium px-4 py-3 border-r border-slate-200 w-28 text-center">Horário</th>
+                <th className="font-medium px-4 py-3 border-r border-slate-200 w-40 text-center">Horário</th>
                 <th className="font-medium px-4 py-3 border-r border-slate-200 w-32 text-center">Responsável</th>
                 {daysOfWeek.map(day => (
                   <th key={day.key} className="font-medium px-2 py-3 border-r border-slate-200 text-center w-24">
