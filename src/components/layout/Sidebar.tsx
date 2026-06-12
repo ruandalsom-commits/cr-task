@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { LayoutTemplate, Grid, LogOut, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { LayoutTemplate, Grid, LogOut, ChevronLeft, ChevronRight, ChevronDown, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -128,6 +128,14 @@ export function Sidebar() {
         </div>
         
         <div className="p-4 flex-1 overflow-y-auto">
+          <Link 
+            href="/my-work"
+            className={`flex items-center gap-2 p-2 rounded-md cursor-pointer mb-6 transition-colors w-full ${pathname === '/my-work' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-100'}`}
+          >
+            <CheckSquare className="w-5 h-5 shrink-0" />
+            <span className="text-[14px]">Minhas Tarefas</span>
+          </Link>
+
           <div className="flex items-center justify-between text-slate-500 hover:bg-slate-100 p-2 rounded-md cursor-pointer mb-2 transition-colors group shrink-0">
             <div className="flex items-center gap-2">
               <LayoutTemplate className="w-4 h-4" />
