@@ -286,6 +286,8 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       const { data: boardData } = await supabase.from('boards').select('name').eq('id', boardId).single();
       const boardName = boardData?.name || '';
       
+      const { data: { user } } = await supabase.auth.getUser();
+      
       let externalTasks: any[] = [];
       
       // Evita puxar tarefas em quadros gerais (ex: Panorama do projeto)
