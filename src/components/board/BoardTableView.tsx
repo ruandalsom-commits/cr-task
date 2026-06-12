@@ -47,8 +47,10 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<string | null>(null);
+  const [filterDate, setFilterDate] = useState<string | null>(null);
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
+  const [dateFilterOpen, setDateFilterOpen] = useState(false);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -344,6 +346,12 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const filteredTasks = tasks?.filter((task: any) => {
     if (filterStatus && task.status !== filterStatus) return false;
     if (filterPriority && task.priority !== filterPriority) return false;
+    if (filterDate) {
+      const dueStatus = getDueStatus(task.due_date, task.status);
+      if (filterDate === 'Atrasado' && (dueStatus !== 'overdue' || task.status === 'Feito')) return false;
+      if (filterDate === 'Hoje' && dueStatus !== 'today') return false;
+      if (filterDate === 'Futuro' && dueStatus !== 'pending') return false;
+    }
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -630,7 +638,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
         <div className="relative">
           <button 
-            onClick={() => { setStatusFilterOpen(!statusFilterOpen); setPriorityFilterOpen(false); }}
+            onClick={() => { setStatusFilterOpen(!statusFilterOpen); setPriorityFilterOpen(false); setDateFilterOpen(false); }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[14px] transition-colors shadow-sm ${filterStatus ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
           >
             Status {filterStatus && `: ${filterStatus}`}
@@ -638,13 +646,17 @@ export function BoardTableView({ boardId }: { boardId: string }) {
           {statusFilterOpen && (
             <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl p-2 z-50">
               <div className="text-xs font-bold text-slate-400 mb-2 px-2">Filtrar por Status</div>
-              {['Feito', 'Trabalhando', 'Travado', 'Pendente'].map(status => (
+              {[{name: 'Feito', color: 'bg-[#00c875]'}, {name: 'Trabalhando', color: 'bg-[#fdab3d]'}, {name: 'Travado', color: 'bg-[#e2445c]'}, {name: 'Pendente', color: 'bg-[#c4c4c4]'}].map(status => (
                 <button 
-                  key={status}
-                  onClick={() => { setFilterStatus(filterStatus === status ? null : status); setStatusFilterOpen(false); }}
+                  key={status.name}
+                  onClick={() => { setFilterStatus(filterStatus === status.name ? null : status.name); setStatusFilterOpen(false); }}
                   className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 flex items-center justify-between"
                 >
-                  {status} {filterStatus === status && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-sm ${status.color}`}></span>
+                    {status.name}
+                  </div>
+                  {filterStatus === status.name && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
                 </button>
               ))}
             </div>
@@ -653,7 +665,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
         <div className="relative">
           <button 
-            onClick={() => { setPriorityFilterOpen(!priorityFilterOpen); setStatusFilterOpen(false); }}
+            onClick={() => { setPriorityFilterOpen(!priorityFilterOpen); setStatusFilterOpen(false); setDateFilterOpen(false); }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[14px] transition-colors shadow-sm ${filterPriority ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
           >
             Prioridade {filterPriority && `: ${filterPriority}`}
@@ -661,13 +673,44 @@ export function BoardTableView({ boardId }: { boardId: string }) {
           {priorityFilterOpen && (
             <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl p-2 z-50">
               <div className="text-xs font-bold text-slate-400 mb-2 px-2">Filtrar por Prioridade</div>
-              {['Alta', 'Média', 'Baixa', 'Vazio'].map(priority => (
+              {[{name: 'Alta', color: 'bg-[#401694]'}, {name: 'Média', color: 'bg-[#5559df]'}, {name: 'Baixa', color: 'bg-[#579bfc]'}, {name: 'Vazio', color: 'bg-[#c4c4c4]'}].map(priority => (
                 <button 
-                  key={priority}
-                  onClick={() => { setFilterPriority(filterPriority === priority ? null : priority); setPriorityFilterOpen(false); }}
+                  key={priority.name}
+                  onClick={() => { setFilterPriority(filterPriority === priority.name ? null : priority.name); setPriorityFilterOpen(false); }}
                   className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 flex items-center justify-between"
                 >
-                  {priority} {filterPriority === priority && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-sm ${priority.color}`}></span>
+                    {priority.name}
+                  </div>
+                  {filterPriority === priority.name && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <button 
+            onClick={() => { setDateFilterOpen(!dateFilterOpen); setStatusFilterOpen(false); setPriorityFilterOpen(false); }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[14px] transition-colors shadow-sm ${filterDate ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          >
+            Prazo {filterDate && `: ${filterDate}`}
+          </button>
+          {dateFilterOpen && (
+            <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-xl p-2 z-50">
+              <div className="text-xs font-bold text-slate-400 mb-2 px-2">Filtrar por Prazo</div>
+              {[{name: 'Atrasado', color: 'bg-red-500'}, {name: 'Hoje', color: 'bg-blue-500'}, {name: 'Futuro', color: 'bg-slate-300'}].map(dateOpt => (
+                <button 
+                  key={dateOpt.name}
+                  onClick={() => { setFilterDate(filterDate === dateOpt.name ? null : dateOpt.name); setDateFilterOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-slate-100 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${dateOpt.color}`}></span>
+                    {dateOpt.name}
+                  </div>
+                  {filterDate === dateOpt.name && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
                 </button>
               ))}
             </div>
