@@ -26,7 +26,6 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
-        .eq('is_routine', true)
         .order('position');
       if (error) throw error;
       return data;
@@ -89,6 +88,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
   }
 
   const filteredTasks = tasks?.filter((task: any) => {
+    if (!task.is_routine) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
