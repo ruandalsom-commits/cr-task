@@ -274,13 +274,39 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Pega as tarefas locais deste quadro
+      const { data: localTasks, error } = await supabase
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
         .order('position');
       if (error) throw error;
-      return data;
+
+      // 2. Pega as tarefas de outros quadros atribuídas a mim
+      let externalTasks: any[] = [];
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        const { data: extData } = await supabase
+          .from('tasks')
+          .select('*, task_updates(id), boards!inner(id, name, workspace_id)')
+          .neq('board_id', boardId)
+          .ilike('assignee_email', `%${user.email}%`);
+          
+        if (extData) {
+          // Filtra para garantir que está no mesmo workspace atual
+          const activeWorkspace = localStorage.getItem('monday_active_workspace');
+          externalTasks = extData
+            .filter((t: any) => !activeWorkspace || t.boards.workspace_id === activeWorkspace)
+            .map((t: any) => ({
+              ...t,
+              is_external: true,
+              external_board_name: t.boards.name,
+              external_board_id: t.boards.id
+            }));
+        }
+      }
+
+      return [...(localTasks || []), ...externalTasks];
     },
     refetchInterval: 3000
   });
@@ -474,17 +500,24 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                       </td>
                       <td className="px-4 py-0 border-r border-slate-200 relative truncate group/title">
                         <div className="flex items-center justify-between w-full">
-                          <input 
-                            type="text" 
-                            defaultValue={task.title} 
-                            title={task.title}
-                            onBlur={(e) => {
-                              if (e.target.value !== task.title) {
-                                updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
-                              }
-                            }}
-                            className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text truncate"
-                          />
+                          <div className="flex items-center gap-2">
+                            {task.is_external && (
+                              <a href={`/boards/${task.external_board_id}`} className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 hover:bg-purple-200 transition-colors" title="Ir para o quadro">
+                                Quadro: {task.external_board_name}
+                              </a>
+                            )}
+                            <input 
+                              type="text" 
+                              defaultValue={task.title} 
+                              title={task.title}
+                              onBlur={(e) => {
+                                if (e.target.value !== task.title) {
+                                  updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
+                                }
+                              }}
+                              className="text-[#323338] hover:text-blue-600 bg-transparent outline-none w-full cursor-text truncate flex-1"
+                            />
+                          </div>
                           <div className="flex items-center gap-1 bg-transparent px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
                             <button 
                               onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
