@@ -6,6 +6,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { AssigneeCell } from './AssigneeCell';
 import { Search, PlusCircle, Trash2, CheckCircle2, RotateCcw, X, Clock, History } from 'lucide-react';
 
+function getWeekNumber(d: Date) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil(( ( (date.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+}
+
 export function BoardRoutineView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +48,8 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
-        .order('position');
+        .order('position')
+        .order('created_at');
       if (error) throw error;
       return data;
     },
@@ -118,10 +126,11 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
             return `${d.label} (-)`;
           }).join(', ');
 
+          const currentWeek = getWeekNumber(new Date());
           await supabase.from('activity_logs').insert([{
             task_id: task.id,
             user_email: 'Sistema (Fechamento)',
-            action: `encerrou a semana da rotina. Resultado: ${historyText}`
+            action: `[${task.title}] Semana ${currentWeek} concluída. Resultado: ${historyText}`
           }]);
 
           // Limpa os dias mas mantém as configurações
@@ -186,6 +195,11 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
     if (!task.is_routine) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
+  }).sort((a: any, b: any) => {
+    // Ordem fixa: posição -> data de criação -> ID
+    if (a.position !== b.position) return (a.position || 0) - (b.position || 0);
+    if (a.created_at !== b.created_at) return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return a.id.localeCompare(b.id);
   });
 
   const getStatusColor = (status: string, isActive: boolean) => {
