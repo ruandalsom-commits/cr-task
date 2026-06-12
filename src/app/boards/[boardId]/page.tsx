@@ -3,11 +3,12 @@ import { useState, use, useEffect } from 'react';
 import { BoardTableView } from '@/components/board/BoardTableView';
 import { BoardKanbanView } from '@/components/board/BoardKanbanView';
 import { BoardCalendarView } from '@/components/board/BoardCalendarView';
+import { BoardRoutineView } from '@/components/board/BoardRoutineView';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
   const { boardId } = use(params);
-  const [activeTab, setActiveTab] = useState<'tabela' | 'kanban' | 'calendario'>('tabela');
+  const [activeTab, setActiveTab] = useState<'tabela' | 'kanban' | 'calendario' | 'rotina'>('tabela');
   const queryClient = useQueryClient();
 
   return (
@@ -59,6 +60,18 @@ export default function BoardPage({ params }: { params: Promise<{ boardId: strin
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
               Calendário
             </button>
+
+            <button 
+              onClick={() => setActiveTab('rotina')}
+              className={`pb-2 border-b-[3px] transition-colors flex items-center gap-2 ${
+                activeTab === 'rotina' 
+                  ? 'border-blue-600 text-blue-600' 
+                  : 'border-transparent text-[#676879] hover:text-[#323338]'
+              }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Rotinas Diárias
+            </button>
             
             <div className="relative group/addview">
               <button className="pb-2 border-b-[3px] border-transparent text-slate-400 hover:text-[#323338] flex items-center gap-2">
@@ -103,6 +116,8 @@ export default function BoardPage({ params }: { params: Promise<{ boardId: strin
           <BoardTableView boardId={boardId} />
         ) : activeTab === 'kanban' ? (
           <BoardKanbanView boardId={boardId} />
+        ) : activeTab === 'rotina' ? (
+          <BoardRoutineView boardId={boardId} />
         ) : (
           <BoardCalendarView boardId={boardId} />
         )}
