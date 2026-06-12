@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { AssigneeCell } from './AssigneeCell';
-import { Search, PlusCircle, Trash2, CheckCircle2, RotateCcw, X, Clock } from 'lucide-react';
+import { Search, PlusCircle, Trash2, CheckCircle2, RotateCcw, X, Clock, History } from 'lucide-react';
 
 export function BoardRoutineView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [historyTaskId, setHistoryTaskId] = useState<string | null>(null);
   const [newRoutine, setNewRoutine] = useState({
     title: '',
     assignee_email: '',
@@ -45,6 +46,20 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
       return data;
     },
     refetchInterval: 3000
+  });
+
+  const { data: activityLogs } = useQuery({
+    queryKey: ['routine_history', historyTaskId],
+    queryFn: async () => {
+      if (!historyTaskId) return [];
+      const { data } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('task_id', historyTaskId)
+        .order('created_at', { ascending: false });
+      return data || [];
+    },
+    enabled: !!historyTaskId
   });
 
   const updateTask = useMutation({
@@ -290,6 +305,42 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
         </button>
       </div>
 
+      {/* Modal de Histórico */}
+      {historyTaskId && (
+        <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><History className="w-5 h-5 text-blue-600"/> Histórico da Rotina</h2>
+              <button onClick={() => setHistoryTaskId(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
+              {activityLogs && activityLogs.length > 0 ? (
+                <div className="space-y-4">
+                  {activityLogs.map((log: any) => (
+                    <div key={log.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                          <History className="w-3 h-3" />
+                        </div>
+                        <span className="text-sm font-semibold text-slate-700">{log.user_email}</span>
+                        <span className="text-xs text-slate-400 ml-auto">
+                          {new Date(log.created_at).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600">{log.action}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400 text-sm">
+                  Nenhum histórico encontrado para esta rotina.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto pb-24 pt-6 px-8">
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed' }}>
@@ -326,8 +377,16 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
                             className="text-[#323338] hover:text-blue-600 font-medium bg-transparent outline-none w-full cursor-text truncate"
                           />
                           <button 
+                            onClick={() => setHistoryTaskId(task.id)}
+                            className="opacity-0 group-hover/title:opacity-100 p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-100 rounded transition-colors absolute right-8"
+                            title="Ver histórico"
+                          >
+                            <History className="w-[18px] h-[18px]" />
+                          </button>
+                          <button 
                             onClick={() => { if(confirm('Excluir esta rotina?')) deleteTask.mutate(task.id); }}
                             className="opacity-0 group-hover/title:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors absolute right-2"
+                            title="Excluir"
                           >
                             <Trash2 className="w-[18px] h-[18px]" />
                           </button>
