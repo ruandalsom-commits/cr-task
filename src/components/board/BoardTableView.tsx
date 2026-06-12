@@ -274,13 +274,49 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Pega as tarefas locais deste quadro
+      const { data: localTasks, error } = await supabase
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
         .order('position');
       if (error) throw error;
-      return data;
+
+      // 2. Pega o nome do quadro para identificar se é um quadro pessoal
+      const { data: boardData } = await supabase.from('boards').select('name').eq('id', boardId).single();
+      const boardName = boardData?.name || '';
+      
+      let externalTasks: any[] = [];
+      
+      // Evita puxar tarefas em quadros gerais (ex: Panorama do projeto)
+      const isGeneralBoard = boardName.toLowerCase().includes('projeto') || boardName.toLowerCase().includes('panorama') || boardName.toLowerCase().includes('geral');
+      
+      if (!isGeneralBoard && boardName.length > 2) {
+        // Tenta achar o email do usuário que bate com o nome do quadro
+        const { data: profiles } = await supabase.from('profiles').select('email');
+        const matchedProfile = profiles?.find(p => p.email.toLowerCase().includes(boardName.toLowerCase().trim()));
+        const searchKeyword = matchedProfile ? matchedProfile.email : boardName.trim();
+
+        const { data: extData } = await supabase
+          .from('tasks')
+          .select('*, task_updates(id), boards!inner(id, name, workspace_id)')
+          .neq('board_id', boardId)
+          .ilike('assignee_email', `%${searchKeyword}%`);
+          
+        if (extData) {
+          const activeWorkspace = localStorage.getItem('monday_active_workspace');
+          externalTasks = extData
+            .filter((t: any) => !activeWorkspace || t.boards.workspace_id === activeWorkspace)
+            .map((t: any) => ({
+              ...t,
+              is_external: true,
+              external_board_name: t.boards.name,
+              external_board_id: t.boards.id
+            }));
+        }
+      }
+
+      return [...(localTasks || []), ...externalTasks];
     },
     refetchInterval: 3000
   });
