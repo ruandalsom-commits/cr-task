@@ -67,24 +67,42 @@ export function KanbanCard({ task, isOverlay, onOpenTask }: { task: any, isOverl
       
       <div className="flex flex-wrap items-center gap-2 mb-2">
         {/* Status Badge */}
-        <div className="flex items-center bg-slate-100 rounded text-xs font-medium text-slate-700 overflow-hidden pr-2">
-          <div className={`w-1 h-5 ${STATUS_COLORS[task.status] || STATUS_COLORS['Pendente']} mr-1.5`}></div>
-          {task.status || 'Pendente'}
+        <div className="relative group/tooltip">
+          <div className="flex items-center bg-slate-100 rounded text-xs font-medium text-slate-700 overflow-hidden pr-2">
+            <div className={`w-1 h-5 ${STATUS_COLORS[task.status] || STATUS_COLORS['Pendente']} mr-1.5`}></div>
+            {task.status || 'Pendente'}
+          </div>
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#323338] text-white text-[11px] font-bold px-2 py-1 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+            Status
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#323338]"></div>
+          </div>
         </div>
 
         {/* Prazo Badge */}
         {task.due_date && (
-          <div className="flex items-center bg-slate-100 rounded px-2 py-0.5 text-xs font-medium text-slate-600 gap-1.5 h-5">
-            <Calendar className="w-3 h-3 text-slate-400" />
-            {formatDate(task.due_date)}
+          <div className="relative group/tooltip">
+            <div className="flex items-center bg-slate-100 rounded px-2 py-0.5 text-xs font-medium text-slate-600 gap-1.5 h-5">
+              <Calendar className="w-3 h-3 text-slate-400" />
+              {formatDate(task.due_date)}
+            </div>
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#323338] text-white text-[11px] font-bold px-2 py-1 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+              Prazo
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#323338]"></div>
+            </div>
           </div>
         )}
 
         {/* Prioridade Badge */}
         {task.priority && (
-          <div className="flex items-center bg-slate-100 rounded text-xs font-medium text-slate-700 overflow-hidden pr-2">
-            <div className={`w-1 h-5 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS['Vazio']} mr-1.5`}></div>
-            {task.priority}
+          <div className="relative group/tooltip">
+            <div className="flex items-center bg-slate-100 rounded text-xs font-medium text-slate-700 overflow-hidden pr-2">
+              <div className={`w-1 h-5 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS['Vazio']} mr-1.5`}></div>
+              {task.priority}
+            </div>
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#323338] text-white text-[11px] font-bold px-2 py-1 rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+              Prioridade
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#323338]"></div>
+            </div>
           </div>
         )}
       </div>
