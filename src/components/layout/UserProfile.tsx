@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { LogOut, Upload, User, Image as ImageIcon, ShieldCheck } from 'lucide-react';
+import { LogOut, Upload, User, Image as ImageIcon, ShieldCheck, Mail, MailWarning } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -167,6 +167,30 @@ export function UserProfile() {
                 className="hidden" 
               />
               </label>
+
+              <button 
+                onClick={async () => {
+                  const newStatus = !(profile?.receive_emails ?? true);
+                  try {
+                    const { error } = await supabase.from('profiles').update({ receive_emails: newStatus }).eq('id', profile?.id);
+                    if (error) throw error;
+                    setProfile({ ...profile, receive_emails: newStatus });
+                  } catch (e: any) {
+                    alert('Para ativar essa opção, precisamos adicionar a coluna no banco. Vá no SQL Editor e rode: ALTER TABLE profiles ADD COLUMN receive_emails BOOLEAN DEFAULT TRUE;');
+                  }
+                }}
+                className="flex items-center gap-3 w-full p-2 hover:bg-slate-50 rounded-lg text-sm text-slate-700 transition-colors mt-1"
+              >
+                {(profile?.receive_emails ?? true) ? (
+                  <Mail className="w-4 h-4 text-green-500" />
+                ) : (
+                  <MailWarning className="w-4 h-4 text-slate-400" />
+                )}
+                <div className="flex flex-col items-start">
+                  <span>Notificações por Email</span>
+                  <span className="text-[10px] text-slate-400">{(profile?.receive_emails ?? true) ? 'Ativado (Clique para desativar)' : 'Desativado (Clique para ativar)'}</span>
+                </div>
+              </button>
               
               {profile?.role === 'admin' && (
                 <a 
