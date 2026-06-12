@@ -4,12 +4,18 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { AssigneeCell } from './AssigneeCell';
-import { Search, PlusCircle, Trash2, MessageCirclePlus, CheckCircle2, RotateCcw, X } from 'lucide-react';
+import { Search, PlusCircle, Trash2, CheckCircle2, RotateCcw, X, Clock } from 'lucide-react';
 
 export function BoardRoutineView({ boardId }: { boardId: string }) {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [taskDetailsOpen, setTaskDetailsOpen] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newRoutine, setNewRoutine] = useState({
+    title: '',
+    assignee_email: '',
+    time: '',
+    activeDays: ['mon', 'tue', 'wed', 'thu', 'fri']
+  });
 
   const daysOfWeek = [
     { key: 'mon', label: 'Segunda' },
@@ -18,6 +24,14 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
     { key: 'thu', label: 'Quinta' },
     { key: 'fri', label: 'Sexta' }
   ];
+
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('email, avatar_url');
+      return data || [];
+    }
+  });
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
@@ -51,7 +65,11 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
 
   const toggleDayStatus = (task: any, dayKey: string) => {
     const currentRoutine = task.routine_status || {};
-    // Alterna entre: null -> 'Feito' -> 'Pendente' -> null
+    
+    // Verifica se o dia é ativo para esta rotina
+    const activeDays = currentRoutine.config_days || ['mon', 'tue', 'wed', 'thu', 'fri'];
+    if (!activeDays.includes(dayKey)) return;
+
     let nextStatus = 'Feito';
     if (currentRoutine[dayKey] === 'Feito') nextStatus = 'Pendente';
     else if (currentRoutine[dayKey] === 'Pendente') nextStatus = 'null';
@@ -67,16 +85,78 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
   };
 
   const resetAllRoutines = async () => {
-    if (!confirm('Deseja limpar todos os dias da semana para começar uma nova semana?')) return;
+    if (!confirm('Deseja finalizar esta semana? Isso limpará a tabela e salvará o resultado no Histórico de Atividades de cada rotina.')) return;
     
     if (tasks) {
       for (const task of tasks) {
-        if (task.routine_status && Object.keys(task.routine_status).length > 0) {
-          await supabase.from('tasks').update({ routine_status: {} }).eq('id', task.id);
+        if (!task.is_routine) continue;
+        const r = task.routine_status || {};
+        
+        // Verifica se teve algum preenchimento
+        const hasData = daysOfWeek.some(d => r[d.key]);
+        
+        if (hasData) {
+          // Salva histórico
+          const historyText = daysOfWeek.map(d => {
+            if (r[d.key] === 'Feito') return `${d.label} (✅)`;
+            if (r[d.key] === 'Pendente') return `${d.label} (❌)`;
+            return `${d.label} (-)`;
+          }).join(', ');
+
+          await supabase.from('activity_logs').insert([{
+            task_id: task.id,
+            user_email: 'Sistema (Fechamento)',
+            action: `encerrou a semana da rotina. Resultado: ${historyText}`
+          }]);
+
+          // Limpa os dias mas mantém as configurações
+          const newRoutine = { ...r };
+          daysOfWeek.forEach(d => delete newRoutine[d.key]);
+          await supabase.from('tasks').update({ routine_status: newRoutine }).eq('id', task.id);
         }
       }
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      alert('Semana finalizada! O histórico foi salvo nas Atividades de cada tarefa.');
     }
+  };
+
+  const handleCreateRoutine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoutine.title) return;
+
+    const routineConfig = {
+      config_time: newRoutine.time,
+      config_days: newRoutine.activeDays
+    };
+
+    const { error } = await supabase.from('tasks').insert([
+      { 
+        title: newRoutine.title, 
+        board_id: boardId, 
+        is_routine: true, 
+        assignee_email: newRoutine.assignee_email || null,
+        routine_status: routineConfig,
+        position: (tasks?.length || 0) + 1 
+      }
+    ]);
+
+    if (error) {
+      alert('Erro ao criar rotina: ' + error.message);
+    } else {
+      setIsModalOpen(false);
+      setNewRoutine({ title: '', assignee_email: '', time: '', activeDays: ['mon', 'tue', 'wed', 'thu', 'fri'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+    }
+  };
+
+  const toggleNewRoutineDay = (dayKey: string) => {
+    setNewRoutine(prev => {
+      const active = prev.activeDays.includes(dayKey);
+      return {
+        ...prev,
+        activeDays: active ? prev.activeDays.filter(d => d !== dayKey) : [...prev.activeDays, dayKey]
+      };
+    });
   };
 
   if (isLoading) {
@@ -93,30 +173,95 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
     return true;
   });
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, isActive: boolean) => {
+    if (!isActive) return 'bg-slate-50 text-slate-300 cursor-not-allowed';
     if (status === 'Feito') return 'bg-[#00c875] text-white';
     if (status === 'Pendente') return 'bg-[#e2445c] text-white';
     return 'bg-slate-100 hover:bg-slate-200 text-transparent hover:text-slate-400';
   };
 
-  const getStatusIcon = (status: string) => {
-    if (status === 'Feito') return <CheckCircle2 className="w-4 h-4 mx-auto" />;
-    if (status === 'Pendente') return <X className="w-4 h-4 mx-auto" />;
-    return <span className="text-[10px] font-medium opacity-0 hover:opacity-100 transition-opacity">Marcar</span>;
-  };
-
   return (
     <div className="w-full h-full relative flex flex-col bg-white">
+      {/* Modal de Nova Rotina */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-800">Criar Nova Rotina</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <form onSubmit={handleCreateRoutine} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da rotina</label>
+                <input 
+                  autoFocus
+                  required
+                  type="text" 
+                  value={newRoutine.title}
+                  onChange={e => setNewRoutine({...newRoutine, title: e.target.value})}
+                  className="w-full border border-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  placeholder="Ex: Backup do banco de dados"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Horário (Opcional)</label>
+                  <input 
+                    type="time" 
+                    value={newRoutine.time}
+                    onChange={e => setNewRoutine({...newRoutine, time: e.target.value})}
+                    className="w-full border border-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Responsável</label>
+                  <select 
+                    value={newRoutine.assignee_email}
+                    onChange={e => setNewRoutine({...newRoutine, assignee_email: e.target.value})}
+                    className="w-full border border-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Nenhum</option>
+                    {workspaceUsers?.map((u: any) => (
+                      <option key={u.email} value={u.email}>{u.email}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Dias contabilizados</label>
+                <div className="flex gap-2">
+                  {daysOfWeek.map(day => {
+                    const isActive = newRoutine.activeDays.includes(day.key);
+                    return (
+                      <button
+                        key={day.key}
+                        type="button"
+                        onClick={() => toggleNewRoutineDay(day.key)}
+                        className={`flex-1 py-1.5 rounded text-xs font-medium border transition-colors ${isActive ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
+                      >
+                        {day.label.substring(0,3)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded">Cancelar</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded">Criar Rotina</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="px-8 py-4 flex items-center justify-between border-b border-slate-200 bg-white shrink-0">
         <div className="flex items-center gap-4">
           <button 
-            onClick={async () => {
-              const { error } = await supabase.from('tasks').insert([
-                { title: 'Nova Rotina', board_id: boardId, is_routine: true, position: (tasks?.length || 0) + 1 }
-              ]);
-              if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-            }}
+            onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[14px] font-medium transition-colors shadow-sm"
           >
             Nova Rotina
@@ -138,9 +283,10 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
 
         <button 
           onClick={resetAllRoutines}
-          className="flex items-center gap-2 text-slate-500 hover:text-red-600 px-3 py-1.5 rounded hover:bg-red-50 transition-colors text-sm font-medium border border-slate-200 hover:border-red-200"
+          className="flex items-center gap-2 text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded hover:bg-blue-50 transition-colors text-sm font-medium border border-slate-200 hover:border-blue-200"
+          title="Salvar histórico nas atividades e limpar a semana"
         >
-          <RotateCcw className="w-4 h-4" /> Resetar Semana
+          <RotateCcw className="w-4 h-4" /> Finalizar Semana
         </button>
       </div>
 
@@ -150,6 +296,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-[#676879] text-[14px]">
                 <th className="font-medium px-6 py-3 border-r border-slate-200 w-1/3">Tarefa da Rotina</th>
+                <th className="font-medium px-4 py-3 border-r border-slate-200 w-28 text-center">Horário</th>
                 <th className="font-medium px-4 py-3 border-r border-slate-200 w-32 text-center">Responsável</th>
                 {daysOfWeek.map(day => (
                   <th key={day.key} className="font-medium px-2 py-3 border-r border-slate-200 text-center w-24">
@@ -160,51 +307,70 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
             </thead>
             <tbody className="text-[15px]">
               {filteredTasks && filteredTasks.length > 0 ? (
-                filteredTasks.map((task) => (
-                  <tr key={task.id} className="group/row border-b border-slate-200 hover:bg-[#f5f6f8] transition-colors h-[50px]">
-                    <td className="px-6 py-0 border-r border-slate-200 relative truncate group/title">
-                      <div className="flex items-center justify-between w-full h-full">
-                        <input 
-                          type="text" 
-                          defaultValue={task.title} 
-                          onBlur={(e) => {
-                            if (e.target.value !== task.title) {
-                              updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
-                            }
-                          }}
-                          className="text-[#323338] hover:text-blue-600 font-medium bg-transparent outline-none w-full cursor-text truncate"
-                        />
-                        <button 
-                          onClick={() => { if(confirm('Excluir esta rotina?')) deleteTask.mutate(task.id); }}
-                          className="opacity-0 group-hover/title:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors absolute right-2"
-                        >
-                          <Trash2 className="w-[18px] h-[18px]" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-0 border-r border-slate-200 text-center relative">
-                      <AssigneeCell task={task} />
-                    </td>
-                    {daysOfWeek.map(day => {
-                      const status = (task.routine_status || {})[day.key];
-                      return (
-                        <td key={day.key} className="p-1 border-r border-slate-200 text-center h-[50px]">
-                          <button
-                            onClick={() => toggleDayStatus(task, day.key)}
-                            className={`w-full h-full flex items-center justify-center transition-all ${getStatusColor(status)}`}
+                filteredTasks.map((task) => {
+                  const rConf = task.routine_status || {};
+                  const activeDays = rConf.config_days || ['mon', 'tue', 'wed', 'thu', 'fri'];
+
+                  return (
+                    <tr key={task.id} className="group/row border-b border-slate-200 hover:bg-[#f5f6f8] transition-colors h-[50px]">
+                      <td className="px-6 py-0 border-r border-slate-200 relative truncate group/title">
+                        <div className="flex items-center justify-between w-full h-full">
+                          <input 
+                            type="text" 
+                            defaultValue={task.title} 
+                            onBlur={(e) => {
+                              if (e.target.value !== task.title) {
+                                updateTask.mutate({ id: task.id, updates: { title: e.target.value } });
+                              }
+                            }}
+                            className="text-[#323338] hover:text-blue-600 font-medium bg-transparent outline-none w-full cursor-text truncate"
+                          />
+                          <button 
+                            onClick={() => { if(confirm('Excluir esta rotina?')) deleteTask.mutate(task.id); }}
+                            className="opacity-0 group-hover/title:opacity-100 p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors absolute right-2"
                           >
-                            {status === 'Feito' && <CheckCircle2 className="w-5 h-5" />}
-                            {status === 'Pendente' && <X className="w-5 h-5" />}
-                            {!status && <span className="opacity-0 group-hover/row:opacity-100 text-xs font-medium text-slate-400">Marcar</span>}
+                            <Trash2 className="w-[18px] h-[18px]" />
                           </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))
+                        </div>
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200 text-center relative text-sm text-slate-600 font-medium">
+                        {rConf.config_time ? (
+                          <div className="flex items-center justify-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-400"/> {rConf.config_time}</div>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-0 border-r border-slate-200 text-center relative">
+                        <AssigneeCell task={task} />
+                      </td>
+                      {daysOfWeek.map(day => {
+                        const status = rConf[day.key];
+                        const isActiveDay = activeDays.includes(day.key);
+                        
+                        return (
+                          <td key={day.key} className="p-1 border-r border-slate-200 text-center h-[50px]">
+                            <button
+                              disabled={!isActiveDay}
+                              onClick={() => toggleDayStatus(task, day.key)}
+                              className={`w-full h-full flex items-center justify-center transition-all ${getStatusColor(status, isActiveDay)}`}
+                            >
+                              {!isActiveDay ? (
+                                <span className="opacity-50">-</span>
+                              ) : (
+                                <>
+                                  {status === 'Feito' && <CheckCircle2 className="w-5 h-5" />}
+                                  {status === 'Pendente' && <X className="w-5 h-5" />}
+                                  {!status && <span className="opacity-0 group-hover/row:opacity-100 text-xs font-medium text-slate-400">Marcar</span>}
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-400 text-sm">
+                  <td colSpan={8} className="text-center py-8 text-slate-400 text-sm">
                     Nenhuma rotina cadastrada neste quadro. Comece adicionando uma nova rotina!
                   </td>
                 </tr>
