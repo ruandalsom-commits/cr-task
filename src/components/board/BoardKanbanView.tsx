@@ -35,6 +35,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
+        .or('is_routine.eq.false,is_routine.is.null')
         .order('position');
       if (error) throw error;
       return data;

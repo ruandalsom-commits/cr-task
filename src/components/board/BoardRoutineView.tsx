@@ -26,6 +26,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
+        .eq('is_routine', true)
         .order('position');
       if (error) throw error;
       return data;
@@ -112,7 +113,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
           <button 
             onClick={async () => {
               const { error } = await supabase.from('tasks').insert([
-                { title: 'Nova Rotina', board_id: boardId, position: (tasks?.length || 0) + 1 }
+                { title: 'Nova Rotina', board_id: boardId, is_routine: true, position: (tasks?.length || 0) + 1 }
               ]);
               if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
             }}
