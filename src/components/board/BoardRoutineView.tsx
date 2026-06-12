@@ -22,6 +22,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
     title: '',
     assignee_email: '',
     time: '',
+    timeEnd: '',
     activeDays: ['mon', 'tue', 'wed', 'thu', 'fri']
   });
 
@@ -150,6 +151,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
 
     const routineConfig = {
       config_time: newRoutine.time,
+      config_time_end: newRoutine.timeEnd,
       config_days: newRoutine.activeDays
     };
 
@@ -168,7 +170,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
       alert('Erro ao criar rotina: ' + error.message);
     } else {
       setIsModalOpen(false);
-      setNewRoutine({ title: '', assignee_email: '', time: '', activeDays: ['mon', 'tue', 'wed', 'thu', 'fri'] });
+      setNewRoutine({ title: '', assignee_email: '', time: '', timeEnd: '', activeDays: ['mon', 'tue', 'wed', 'thu', 'fri'] });
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
     }
   };
@@ -233,13 +235,22 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Horário (Opcional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Início</label>
                   <input 
                     type="time" 
                     value={newRoutine.time}
                     onChange={e => setNewRoutine({...newRoutine, time: e.target.value})}
+                    className="w-full border border-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Fim</label>
+                  <input 
+                    type="time" 
+                    value={newRoutine.timeEnd}
+                    onChange={e => setNewRoutine({...newRoutine, timeEnd: e.target.value})}
                     className="w-full border border-slate-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -407,8 +418,11 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
                         </div>
                       </td>
                       <td className="px-4 py-0 border-r border-slate-200 text-center relative text-sm text-slate-600 font-medium">
-                        {rConf.config_time ? (
-                          <div className="flex items-center justify-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-400"/> {rConf.config_time}</div>
+                        {rConf.config_time || rConf.config_time_end ? (
+                          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0"/> 
+                            <span>{rConf.config_time || '--:--'} {rConf.config_time_end ? `às ${rConf.config_time_end}` : ''}</span>
+                          </div>
                         ) : '-'}
                       </td>
                       <td className="px-4 py-0 border-r border-slate-200 text-center relative">
