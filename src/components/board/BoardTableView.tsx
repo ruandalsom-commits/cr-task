@@ -278,7 +278,6 @@ export function BoardTableView({ boardId }: { boardId: string }) {
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
-        .or('is_routine.eq.false,is_routine.is.null')
         .order('position');
       if (error) throw error;
       return data;
@@ -345,6 +344,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   }
 
   const filteredTasks = tasks?.filter((task: any) => {
+    if (task.is_routine) return false; // Filtra as rotinas
     if (filterStatus && task.status !== filterStatus) return false;
     if (filterPriority && task.priority !== filterPriority) return false;
     if (filterDate) {

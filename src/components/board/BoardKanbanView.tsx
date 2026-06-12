@@ -35,7 +35,6 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
-        .or('is_routine.eq.false,is_routine.is.null')
         .order('position');
       if (error) throw error;
       return data;
@@ -175,7 +174,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   const columnsData = STATUSES.map(status => ({
     id: status,
     title: status,
-    tasks: tasks.filter(t => (t.status || 'Pendente') === status)
+    tasks: tasks.filter(t => !t.is_routine && (t.status || 'Pendente') === status)
   }));
 
   const handleDragStart = (event: DragStartEvent) => {
