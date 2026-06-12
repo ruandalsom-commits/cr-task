@@ -274,39 +274,13 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
     queryFn: async () => {
-      // 1. Pega as tarefas locais deste quadro
-      const { data: localTasks, error } = await supabase
+      const { data, error } = await supabase
         .from('tasks')
         .select('*, task_updates(id)')
         .eq('board_id', boardId)
         .order('position');
       if (error) throw error;
-
-      // 2. Pega as tarefas de outros quadros atribuídas a mim
-      let externalTasks: any[] = [];
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        const { data: extData } = await supabase
-          .from('tasks')
-          .select('*, task_updates(id), boards!inner(id, name, workspace_id)')
-          .neq('board_id', boardId)
-          .ilike('assignee_email', `%${user.email}%`);
-          
-        if (extData) {
-          // Filtra para garantir que está no mesmo workspace atual
-          const activeWorkspace = localStorage.getItem('monday_active_workspace');
-          externalTasks = extData
-            .filter((t: any) => !activeWorkspace || t.boards.workspace_id === activeWorkspace)
-            .map((t: any) => ({
-              ...t,
-              is_external: true,
-              external_board_name: t.boards.name,
-              external_board_id: t.boards.id
-            }));
-        }
-      }
-
-      return [...(localTasks || []), ...externalTasks];
+      return data;
     },
     refetchInterval: 3000
   });
