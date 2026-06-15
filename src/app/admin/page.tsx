@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
@@ -132,9 +133,18 @@ export default function AdminPage() {
 
   return (
     <div className="p-10 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3 mb-8">
-        <ShieldCheck className="w-8 h-8 text-blue-600" />
-        <h1 className="text-3xl font-black text-slate-800">Painel de Administração</h1>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="w-8 h-8 text-blue-600" />
+          <h1 className="text-3xl font-black text-slate-800">Painel de Administração</h1>
+        </div>
+        <Link 
+          href="/admin/reports" 
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-sm"
+        >
+          <BarChart3 className="w-5 h-5" />
+          Ver Relatórios e Insights
+        </Link>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

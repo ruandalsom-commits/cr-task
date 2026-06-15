@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { LogOut, Upload, User, Image as ImageIcon, ShieldCheck, Mail, MailWarning } from 'lucide-react';
+import { LogOut, Upload, User, Image as ImageIcon, ShieldCheck, Mail, MailWarning, BarChart3 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -193,13 +193,22 @@ export function UserProfile() {
               </button>
               
               {profile?.role === 'admin' && (
-                <a 
-                  href="/admin"
-                  className="flex items-center gap-3 w-full p-2 hover:bg-blue-50 hover:text-blue-700 rounded-lg text-sm text-slate-700 transition-colors mt-1 border-t border-slate-100"
-                >
-                  <ShieldCheck className="w-4 h-4 text-blue-600" />
-                  <span className="font-semibold text-blue-700">Painel de Administração</span>
-                </a>
+                <>
+                  <a 
+                    href="/admin"
+                    className="flex items-center gap-3 w-full p-2 hover:bg-blue-50 hover:text-blue-700 rounded-lg text-sm text-slate-700 transition-colors mt-1 border-t border-slate-100"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                    <span className="font-semibold text-blue-700">Painel de Administração</span>
+                  </a>
+                  <a 
+                    href="/admin/reports"
+                    className="flex items-center gap-3 w-full p-2 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg text-sm text-slate-700 transition-colors mt-1"
+                  >
+                    <BarChart3 className="w-4 h-4 text-emerald-600" />
+                    <span className="font-semibold text-emerald-700">Relatórios e Insights</span>
+                  </a>
+                </>
               )}
               
               <button 
