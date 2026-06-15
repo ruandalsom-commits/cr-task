@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { ShieldAlert, BarChart3, ArrowLeft, PieChart as PieChartIcon } from 'lucide-react';
+import { ShieldAlert, BarChart3, ArrowLeft, PieChart as PieChartIcon, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function ReportsPage() {
+  const queryClient = useQueryClient();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -39,6 +40,43 @@ export default function ReportsPage() {
     enabled: isAdmin === true
   });
 
+  // Buscar último insight gerado
+  const { data: latestInsight, isLoading: isLoadingInsight } = useQuery({
+    queryKey: ['admin_latest_insight'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ai_insights')
+        .select('*')
+        .eq('type', 'team_summary')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 é "not found"
+      return data;
+    },
+    enabled: isAdmin === true
+  });
+
+  const generateInsight = useMutation({
+    mutationFn: async ({ userStats, totalTasks, completedTasks, pendingTasks }: any) => {
+      const response = await fetch('/api/generate-team-insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userStats, totalTasks, completedTasks, pendingTasks })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_latest_insight'] });
+    },
+    onError: (err: any) => {
+      alert('Erro ao gerar insight: ' + err.message + '\nVerifique se a GEMINI_API_KEY está configurada no .env.local');
+    }
+  });
+
   if (isAdmin === null) return <div className="p-10 text-center">Verificando permissões...</div>;
   if (isAdmin === false) return (
     <div className="p-10 flex flex-col items-center justify-center h-screen bg-slate-50">
@@ -53,7 +91,6 @@ export default function ReportsPage() {
   const completedTasks = allTasks?.filter(t => t.status === 'Feito').length || 0;
   const pendingTasks = totalTasks - completedTasks;
 
-  // Processar dados para o gráfico de Pizza (Status)
   const statusCounts = allTasks?.reduce((acc: any, task: any) => {
     const status = task.status || 'Pendente';
     acc[status] = (acc[status] || 0) + 1;
@@ -65,13 +102,9 @@ export default function ReportsPage() {
     value: statusCounts[key]
   })) : [];
 
-  // Processar dados para o Gráfico de Barras (Desempenho por Usuário)
   const userStats = allTasks?.reduce((acc: any, task: any) => {
     if (!task.assignee_email) return acc;
-    
-    // Suportar múltiplos emails separados por vírgula
     const emails = task.assignee_email.split(',').map((e: string) => e.trim()).filter(Boolean);
-    
     emails.forEach((email: string) => {
       const username = email.split('@')[0];
       if (!acc[username]) {
@@ -86,7 +119,7 @@ export default function ReportsPage() {
     return acc;
   }, {});
 
-  const barData = userStats ? Object.values(userStats).sort((a: any, b: any) => (b.concluido + b.pendente) - (a.concluido + a.pendente)).slice(0, 10) : []; // Top 10 usuários com mais tarefas
+  const barData = userStats ? Object.values(userStats).sort((a: any, b: any) => (b.concluido + b.pendente) - (a.concluido + a.pendente)).slice(0, 10) : [];
 
   return (
     <div className="p-10 max-w-6xl mx-auto">
@@ -102,7 +135,37 @@ export default function ReportsPage() {
         <div className="text-slate-500">Carregando dados...</div>
       ) : (
         <div className="flex flex-col gap-8">
-          {/* Métricas Principais */}
+          
+          {/* Sessão de Insights IA */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl shadow-sm border border-indigo-100">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-indigo-900 flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-indigo-600" />
+                Resumo Inteligente (IA)
+              </h2>
+              <button 
+                onClick={() => generateInsight.mutate({ userStats: barData, totalTasks, completedTasks, pendingTasks })}
+                disabled={generateInsight.isPending || allTasks?.length === 0}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {generateInsight.isPending ? 'Analisando dados...' : 'Gerar Novo Resumo'}
+              </button>
+            </div>
+            
+            {latestInsight ? (
+              <div className="text-slate-700 text-sm md:text-base leading-relaxed space-y-4">
+                {latestInsight.summary_text.split('\n').map((paragraph: string, i: number) => (
+                  <p key={i}>{paragraph}</p>
+                ))}
+                <p className="text-xs text-slate-400 mt-4 pt-4 border-t border-indigo-200/50">
+                  Última atualização: {new Date(latestInsight.created_at).toLocaleString('pt-BR')}
+                </p>
+              </div>
+            ) : (
+              <p className="text-indigo-400 italic">Nenhum resumo gerado ainda. Clique no botão acima para a IA analisar a equipe.</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h2 className="text-slate-500 font-semibold mb-2">Total de Tarefas Cadastradas</h2>
@@ -125,10 +188,7 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Gráficos */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Gráfico de Status */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1">
               <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <PieChartIcon className="w-5 h-5 text-blue-500" />
@@ -137,15 +197,7 @@ export default function ReportsPage() {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                       {pieData.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.name === 'Feito' ? '#10b981' : entry.name === 'Travado' ? '#ef4444' : entry.name === 'Trabalhando' ? '#f59e0b' : '#3b82f6'} />
                       ))}
@@ -157,7 +209,6 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            {/* Gráfico de Produtividade */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
               <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-indigo-500" />
@@ -165,17 +216,11 @@ export default function ReportsPage() {
               </h2>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={barData}
-                    margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-                  >
+                  <BarChart data={barData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
                     <YAxis tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
-                    <RechartsTooltip 
-                      cursor={{fill: '#f1f5f9'}}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    />
+                    <RechartsTooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                     <Legend />
                     <Bar dataKey="concluido" name="Concluídas" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} />
                     <Bar dataKey="pendente" name="Pendentes" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
@@ -183,7 +228,6 @@ export default function ReportsPage() {
                 </ResponsiveContainer>
               </div>
             </div>
-
           </div>
         </div>
       )}
