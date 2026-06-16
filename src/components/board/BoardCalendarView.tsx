@@ -215,17 +215,18 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-      setNewTaskData({
-        title: '',
-        group_name: 'Tarefas pendentes',
-        assignee_email: '',
-        status: 'Não iniciado',
-        priority: '',
-        notes: '',
-        budget: '',
-        task_type: 'Tarefa'
-      });
       if (variables.closeOnSuccess) {
+        setNewTaskData({
+          title: '',
+          group_name: 'Tarefas pendentes',
+          assignee_email: '',
+          status: 'Não iniciado',
+          priority: '',
+          notes: '',
+          budget: '',
+          task_type: 'Tarefa',
+          start_date: ''
+        });
         setCreatingTaskDate(null);
       }
     }

@@ -396,6 +396,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
   const filteredTasks = tasks?.filter((task: any) => {
     if (task.is_routine) return false; // Filtra as rotinas
+    if (task.task_type === 'Lembrete') return false; // Lembretes ficam APENAS no Calendário
     if (filterStatus && task.status !== filterStatus) return false;
     if (filterPriority && task.priority !== filterPriority) return false;
     if (filterDate) {

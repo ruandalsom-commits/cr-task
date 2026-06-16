@@ -174,7 +174,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   const columnsData = STATUSES.map(status => ({
     id: status,
     title: status,
-    tasks: tasks.filter(t => !t.is_routine && (t.status || 'Pendente') === status)
+    tasks: tasks.filter(t => !t.is_routine && t.task_type !== 'Lembrete' && (t.status || 'Pendente') === status)
   }));
 
   const handleDragStart = (event: DragStartEvent) => {
