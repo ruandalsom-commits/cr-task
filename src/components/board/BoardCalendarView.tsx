@@ -109,8 +109,18 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     priority: '',
     notes: '',
     budget: '',
-    task_type: 'Tarefa'
+    task_type: 'Tarefa',
+    selected_dates: []
   });
+
+  useEffect(() => {
+    if (creatingTaskDate && newTaskData.selected_dates?.length === 0) {
+      const d = new Date(creatingTaskDate.getTime());
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      const dateStr = d.toISOString().split('T')[0];
+      setNewTaskData((prev: any) => ({ ...prev, selected_dates: [dateStr] }));
+    }
+  }, [creatingTaskDate]);
   
   const [viewType, setViewType] = useState<'Mês' | 'Semana'>('Mês');
   const [viewDropdownOpen, setViewDropdownOpen] = useState(false);
@@ -177,7 +187,33 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         dateStr = d.toISOString().split('T')[0];
       }
 
-      // 1. Cria a tarefa
+      if (dataToSave.task_type === 'Lembrete' && dataToSave.selected_dates && dataToSave.selected_dates.length > 0) {
+        const inserts = dataToSave.selected_dates.map((d: string, index: number) => ({
+          board_id: boardId,
+          title: dataToSave.title || 'Novo Lembrete',
+          group_name: dataToSave.group_name || 'Tarefas pendentes',
+          status: 'Pendente',
+          due_date: d,
+          start_date: d,
+          task_type: 'Lembrete',
+          position: (rawTasks?.length || 0) + 1 + index
+        }));
+        
+        const { data: taskData, error: taskError } = await supabase.from('tasks').insert(inserts).select();
+        if (taskError) throw taskError;
+
+        if (taskData && dataToSave.notes?.trim()) {
+           const updateInserts = taskData.map((t: any) => ({
+             task_id: t.id,
+             content: dataToSave.notes.trim(),
+             author_email: 'Sistema / Nota Inicial'
+           }));
+           await supabase.from('task_updates').insert(updateInserts);
+        }
+        return taskData;
+      }
+
+      // 1. Cria a tarefa normal
       const { data: taskData, error: taskError } = await supabase.from('tasks').insert([
         { 
           board_id: boardId,
@@ -225,7 +261,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           notes: '',
           budget: '',
           task_type: 'Tarefa',
-          start_date: ''
+          selected_dates: []
         });
         setCreatingTaskDate(null);
       }
@@ -1072,36 +1108,60 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
               )}
 
               {newTaskData.task_type === 'Lembrete' && (
+                <div className="flex items-start">
+                  <div className="w-40 flex items-center gap-3 text-slate-600 mt-2">
+                    <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
+                    <span className="font-medium text-[15px]">Datas Escolhidas</span>
+                  </div>
+                  <div className="flex-1 flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="date"
+                        onChange={(e) => {
+                          if (e.target.value && !newTaskData.selected_dates?.includes(e.target.value)) {
+                            setNewTaskData({...newTaskData, selected_dates: [...(newTaskData.selected_dates || []), e.target.value]});
+                          }
+                          e.target.value = '';
+                        }}
+                        className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2 w-48 outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      />
+                      <span className="text-slate-400 text-sm italic">← Adicione mais dias</span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {(newTaskData.selected_dates || []).map((dateStr: string) => (
+                        <div key={dateStr} className="flex items-center gap-1.5 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-md text-sm font-medium border border-amber-200">
+                          <span>{new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                          <button 
+                            type="button"
+                            onClick={() => setNewTaskData({...newTaskData, selected_dates: newTaskData.selected_dates.filter((d: string) => d !== dateStr)})}
+                            className="hover:bg-amber-200 text-amber-600 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {newTaskData.task_type !== 'Lembrete' && (
                 <div className="flex items-center">
                   <div className="w-40 flex items-center gap-3 text-slate-600">
                     <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
-                    <span className="font-medium text-[15px]">Data Inicial</span>
+                    <span className="font-medium text-[15px]">Prazo</span>
                   </div>
                   <div className="flex-1">
                     <input 
                       type="date"
-                      value={newTaskData.start_date || (creatingTaskDate ? creatingTaskDate.toISOString().split('T')[0] : '')}
-                      onChange={(e) => setNewTaskData({...newTaskData, start_date: e.target.value})}
+                      value={newTaskData.due_date || (creatingTaskDate ? creatingTaskDate.toISOString().split('T')[0] : '')}
+                      onChange={(e) => setNewTaskData({...newTaskData, due_date: e.target.value})}
                       className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm"
                     />
                   </div>
                 </div>
               )}
-
-              <div className="flex items-center">
-                <div className="w-40 flex items-center gap-3 text-slate-600">
-                  <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
-                  <span className="font-medium text-[15px]">{newTaskData.task_type === 'Lembrete' ? 'Data Final' : 'Prazo'}</span>
-                </div>
-                <div className="flex-1">
-                  <input 
-                    type="date"
-                    value={newTaskData.due_date || (creatingTaskDate ? creatingTaskDate.toISOString().split('T')[0] : '')}
-                    onChange={(e) => setNewTaskData({...newTaskData, due_date: e.target.value})}
-                    className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm"
-                  />
-                </div>
-              </div>
 
               {newTaskData.task_type !== 'Lembrete' && (
                 <div className="flex items-center">
