@@ -124,7 +124,7 @@ export default function ReportsPage() {
   const barData = userStats ? Object.values(userStats).sort((a: any, b: any) => (b.concluido + b.pendente) - (a.concluido + a.pendente)).slice(0, 10) : [];
 
   return (
-    <div className="p-10 max-w-6xl mx-auto">
+    <div className="p-10 max-w-6xl mx-auto h-full overflow-y-auto">
       <div className="flex items-center gap-4 mb-8">
         <Link href="/admin" className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors" title="Voltar ao Painel Admin">
           <ArrowLeft className="w-6 h-6" />
