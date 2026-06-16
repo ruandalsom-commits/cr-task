@@ -5,10 +5,45 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { UserProfile } from "@/components/layout/UserProfile";
 import { Briefcase, Search } from "lucide-react";
+import { useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
+  const INACTIVITY_LIMIT = 12 * 60 * 60 * 1000; // 12 horas em ms
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  }, []);
+
+  useEffect(() => {
+    if (pathname === '/login') return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleLogout, INACTIVITY_LIMIT);
+    };
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, resetTimer);
+    });
+
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => {
+        document.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [pathname, handleLogout]);
+
   if (pathname === '/login') {
     return <main className="flex-1 w-full bg-[#0a0a0a] min-h-screen">{children}</main>;
   }

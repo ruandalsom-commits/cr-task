@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type, MessageSquare, MoreHorizontal, X, Paperclip, Activity, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type, MessageSquare, MoreHorizontal, X, Paperclip, Activity, Trash2, Bell } from 'lucide-react';
 
 import { DndContext, DragEndEvent, DragStartEvent, useDraggable, useDroppable, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { StatusCell } from './StatusCell';
@@ -27,7 +27,8 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
     id: task.id,
     data: { task }
   });
-  const bgColor = STATUS_COLORS[task.status] || STATUS_COLORS['Pendente'];
+  const isLembrete = task.task_type === 'Lembrete';
+  const bgColor = isLembrete ? 'bg-amber-400 text-amber-950' : (STATUS_COLORS[task.status] || STATUS_COLORS['Pendente']);
   
   if (isDragging && !isOverlay) {
     return (
@@ -49,10 +50,11 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
          e.stopPropagation();
          onClick?.();
       }}
-      className={`text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
+      className={`flex items-center gap-1.5 text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate ${!isLembrete ? 'text-white' : ''} rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
       title={task.title}
     >
-      {task.title}
+      {isLembrete && <Bell className="w-3 h-3 shrink-0" />}
+      <span className="truncate">{task.title}</span>
     </div>
   );
 }
@@ -106,7 +108,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     status: 'Não iniciado',
     priority: '',
     notes: '',
-    budget: ''
+    budget: '',
+    task_type: 'Tarefa'
   });
   
   const [viewType, setViewType] = useState<'Mês' | 'Semana'>('Mês');
@@ -184,7 +187,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           due_date: dateStr,
           priority: dataToSave.priority || null,
           assignee_email: dataToSave.assignee_email || null,
-          position: (rawTasks?.length || 0) + 1
+          position: (rawTasks?.length || 0) + 1,
+          task_type: dataToSave.task_type || 'Tarefa'
         }
       ]).select();
       
@@ -218,7 +222,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
         status: 'Não iniciado',
         priority: '',
         notes: '',
-        budget: ''
+        budget: '',
+        task_type: 'Tarefa'
       });
       if (variables.closeOnSuccess) {
         setCreatingTaskDate(null);
@@ -943,8 +948,25 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
               
               <div className="flex items-center">
                 <div className="w-40 flex items-center gap-3 text-slate-600">
+                  <div className="w-6 h-6 rounded bg-indigo-500 flex items-center justify-center"><Bell className="w-4 h-4 text-white" /></div>
+                  <span className="font-medium text-[15px]">Tipo de Registro</span>
+                </div>
+                <div className="flex-1 flex gap-4">
+                  <label className={`flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer transition-colors ${newTaskData.task_type === 'Tarefa' ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                    <input type="radio" name="task_type" value="Tarefa" checked={newTaskData.task_type === 'Tarefa'} onChange={(e) => setNewTaskData({...newTaskData, task_type: e.target.value})} className="hidden" />
+                    Tarefa
+                  </label>
+                  <label className={`flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer transition-colors ${newTaskData.task_type === 'Lembrete' ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                    <input type="radio" name="task_type" value="Lembrete" checked={newTaskData.task_type === 'Lembrete'} onChange={(e) => setNewTaskData({...newTaskData, task_type: e.target.value})} className="hidden" />
+                    <Bell className="w-4 h-4" /> Lembrete
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <div className="w-40 flex items-center gap-3 text-slate-600">
                   <div className="w-6 h-6 rounded bg-slate-400 flex items-center justify-center"><Type className="w-3 h-3 text-white" /></div>
-                  <span className="font-medium text-[15px]">Nome da Tarefa</span>
+                  <span className="font-medium text-[15px]">{newTaskData.task_type === 'Lembrete' ? 'Nome do Lembrete' : 'Nome da Tarefa'}</span>
                 </div>
                 <div className="flex-1">
                   <input 
@@ -953,7 +975,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                     value={newTaskData.title}
                     onChange={(e) => setNewTaskData({...newTaskData, title: e.target.value})}
                     className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 w-full outline-none text-[15px] text-slate-800 font-medium focus:ring-1 focus:ring-blue-500 shadow-sm"
-                    placeholder="Nome da Tarefa..."
+                    placeholder={newTaskData.task_type === 'Lembrete' ? 'Nome do Lembrete...' : 'Nome da Tarefa...'}
                   />
                 </div>
               </div>
