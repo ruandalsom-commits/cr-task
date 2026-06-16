@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { ShieldAlert, BarChart3, ArrowLeft, PieChart as PieChartIcon, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function ReportsPage() {
   const queryClient = useQueryClient();
@@ -33,7 +35,7 @@ export default function ReportsPage() {
   const { data: allTasks, isLoading } = useQuery({
     queryKey: ['admin_all_tasks'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tasks').select('id, status, assignee_email');
+      const { data, error } = await supabase.from('tasks').select('id, title, status, priority, assignee_email, due_date, task_type, group_name');
       if (error) throw error;
       return data || [];
     },
@@ -59,11 +61,11 @@ export default function ReportsPage() {
   });
 
   const generateInsight = useMutation({
-    mutationFn: async ({ userStats, totalTasks, completedTasks, pendingTasks }: any) => {
+    mutationFn: async ({ allTasksData }: any) => {
       const response = await fetch('/api/generate-team-insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userStats, totalTasks, completedTasks, pendingTasks })
+        body: JSON.stringify({ allTasks: allTasksData })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
@@ -144,7 +146,7 @@ export default function ReportsPage() {
                 Resumo Inteligente (IA)
               </h2>
               <button 
-                onClick={() => generateInsight.mutate({ userStats: barData, totalTasks, completedTasks, pendingTasks })}
+                onClick={() => generateInsight.mutate({ allTasksData: allTasks })}
                 disabled={generateInsight.isPending || allTasks?.length === 0}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
               >
@@ -154,9 +156,11 @@ export default function ReportsPage() {
             
             {latestInsight ? (
               <div className="text-slate-700 text-sm md:text-base leading-relaxed space-y-4">
-                {latestInsight.summary_text.split('\n').map((paragraph: string, i: number) => (
-                  <p key={i}>{paragraph}</p>
-                ))}
+                <div className="prose prose-indigo max-w-none w-full">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {latestInsight.summary_text}
+                  </ReactMarkdown>
+                </div>
                 <p className="text-xs text-slate-400 mt-4 pt-4 border-t border-indigo-200/50">
                   Última atualização: {new Date(latestInsight.created_at).toLocaleString('pt-BR')}
                 </p>
@@ -194,10 +198,10 @@ export default function ReportsPage() {
                 <PieChartIcon className="w-5 h-5 text-blue-500" />
                 Status das Tarefas
               </h2>
-              <div className="h-64 w-full">
+              <div className="h-[350px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={5} dataKey="value">
                       {pieData.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={entry.name === 'Feito' ? '#10b981' : entry.name === 'Travado' ? '#ef4444' : entry.name === 'Trabalhando' ? '#f59e0b' : '#3b82f6'} />
                       ))}
@@ -214,9 +218,9 @@ export default function ReportsPage() {
                 <BarChart3 className="w-5 h-5 text-indigo-500" />
                 Carga de Trabalho por Usuário (Top 10)
               </h2>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+              <div className="h-[350px] w-full overflow-x-auto">
+                <ResponsiveContainer width="100%" height="100%" minWidth={500}>
+                  <BarChart data={barData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
                     <YAxis tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />

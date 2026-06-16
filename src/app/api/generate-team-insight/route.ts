@@ -8,30 +8,47 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(req: Request) {
   try {
-    const { userStats, totalTasks, completedTasks, pendingTasks } = await req.json();
+    const { allTasks } = await req.json();
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: 'Chave da API do Gemini não configurada' }, { status: 500 });
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-    const prompt = `Você é um assistente sênior de gestão de equipe em um sistema estilo Monday.com. 
-    O gestor pediu um resumo analítico do desempenho da equipe.
-    
-    Aqui estão os dados gerais:
-    - Total de tarefas: ${totalTasks}
-    - Concluídas: ${completedTasks}
-    - Pendentes: ${pendingTasks}
+    const prompt = `Você é um Analista Sênior de Operações e Gestão de Projetos.
 
-    Estatísticas por colaborador (Top 10):
-    ${JSON.stringify(userStats, null, 2)}
+Sua missão é analisar integralmente o Quadro Principal e o Calendário, cruzando todas as informações disponíveis para gerar um relatório executivo completo sobre as atividades da equipe.
 
-    Escreva um resumo executivo de 2 parágrafos.
-    No primeiro parágrafo, dê um panorama geral da saúde do projeto baseado na proporção de feitas/pendentes e cite quem são os destaques positivos (quem mais concluiu).
-    No segundo parágrafo, aponte os possíveis gargalos (quem tem muitas tarefas pendentes e pode estar sobrecarregado) e sugira uma ação para o gestor.
-    Seja claro, profissional e vá direto ao ponto.`;
+INSTRUÇÕES DE ANÁLISE:
+1. Leia todas as tarefas do Quadro Principal (dados fornecidos abaixo).
+2. Leia todos os eventos, reuniões, entregas e compromissos do Calendário (itens com datas e tipo lembrete/reunião).
+3. Cruze as informações entre ambos para identificar:
+   * Atividades planejadas, em execução, concluídas.
+   * Possíveis divergências entre quadro e calendário.
+   * Sobrecarga de colaboradores ou baixa demanda.
+   * Entregas críticas próximas do prazo, gargalos operacionais e dependências.
+
+4. Para cada colaborador, gere uma análise individual contendo:
+   - Nome do colaborador
+   - Resumo Executivo (responsabilidades, objetivos).
+   - Atividades em andamento (detalhada com status, prioridade, prazo).
+   - Agenda e compromissos (reuniões, entregas).
+   - Análise de carga de trabalho (Baixa, Moderada, Alta, Crítica).
+   - Riscos identificados.
+   - Recomendações.
+
+5. Gere uma visão consolidada da equipe (RESUMO GERAL DA SEMANA e RESUMO GERAL DO MÊS).
+6. Crie uma seção de INSIGHTS GERENCIAIS (quem está sobrecarregado, capacidade ociosa, riscos, etc).
+7. Finalize com um DASHBOARD EXECUTIVO em formato de tabela Markdown com as colunas: Colaborador | Nº de Tarefas | Em Andamento | Concluídas | Reuniões | Prioridade Média | Risco.
+8. O relatório deve ser objetivo, analítico e gerencial. Explique o impacto das atividades.
+9. Caso existam informações conflitantes, destaque-as em "Inconsistências Encontradas".
+10. Formate usando Markdown, linguagem profissional e gerencial.
+
+DADOS BRUTOS EXTRAÍDOS DO SISTEMA:
+${JSON.stringify(allTasks, null, 2)}
+`;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
