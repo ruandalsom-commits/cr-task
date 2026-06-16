@@ -598,7 +598,12 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           <div className={`flex-1 grid grid-cols-7 ${viewType === 'Mês' ? 'grid-rows-6' : 'grid-rows-1'}`}>
             {daysToRender.map((dayObj, i) => {
               const dateString = dayObj.date.toISOString().split('T')[0];
-              const tasksOnThisDay = filteredTasks?.filter((t: any) => t.due_date && t.due_date.startsWith(dateString)) || [];
+              const tasksOnThisDay = filteredTasks?.filter((t: any) => {
+                if (t.task_type === 'Lembrete' && t.start_date && t.due_date) {
+                  return dateString >= t.start_date && dateString <= t.due_date;
+                }
+                return t.due_date && t.due_date.startsWith(dateString);
+              }) || [];
 
               return (
                 <DayCell 
@@ -651,16 +656,39 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
             {/* Edição Rápida de Campos */}
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex gap-6">
-              <div className="flex flex-col gap-2 w-32 relative z-20">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
-                <div className="w-full h-8"><StatusCell task={activeTask} /></div>
-              </div>
+              {activeTask.task_type !== 'Lembrete' && (
+                <>
+                  <div className="flex flex-col gap-2 w-32 relative z-20">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</span>
+                    <div className="w-full h-8"><StatusCell task={activeTask} /></div>
+                  </div>
+                  <div className="flex flex-col gap-2 w-32 relative z-10">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prioridade</span>
+                    <div className="w-full h-8"><PriorityCell task={activeTask} /></div>
+                  </div>
+                </>
+              )}
+              {activeTask.task_type === 'Lembrete' && (
+                <div className="flex flex-col gap-2 w-32 relative z-10">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Início</span>
+                  <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
+                    <span className={activeTask.start_date ? 'text-slate-700' : 'text-slate-400'}>
+                      {activeTask.start_date ? new Date(activeTask.start_date).toLocaleDateString('pt-BR') : '-'}
+                    </span>
+                    <input 
+                      type="date" 
+                      defaultValue={activeTask.start_date || ''}
+                      onChange={async (e) => {
+                        const { error } = await supabase.from('tasks').update({ start_date: e.target.value }).eq('id', activeTask.id);
+                        if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col gap-2 w-32 relative z-10">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prioridade</span>
-                <div className="w-full h-8"><PriorityCell task={activeTask} /></div>
-              </div>
-              <div className="flex flex-col gap-2 w-32 relative z-10">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prazo</span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{activeTask.task_type === 'Lembrete' ? 'Fim' : 'Prazo'}</span>
                 <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
                   <span className={activeTask.due_date ? 'text-slate-700' : 'text-slate-400'}>
                     {activeTask.due_date ? new Date(activeTask.due_date).toLocaleDateString('pt-BR') : '-'}
@@ -678,10 +706,12 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                   />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 w-16 items-center relative z-20">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pessoa</span>
-                <div className="w-8 h-8"><AssigneeCell task={activeTask} /></div>
-              </div>
+              {activeTask.task_type !== 'Lembrete' && (
+                <div className="flex flex-col gap-2 w-16 items-center relative z-20">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pessoa</span>
+                  <div className="w-8 h-8"><AssigneeCell task={activeTask} /></div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-6 px-6 border-b border-slate-100 text-sm font-medium text-slate-500 pt-4">
@@ -980,66 +1010,87 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 </div>
               </div>
               
-              <div className="flex items-center">
-                <div className="w-40 flex items-center gap-3 text-slate-600">
-                  <div className="w-6 h-6 rounded bg-yellow-500 flex items-center justify-center"><Circle className="w-3 h-3 text-white fill-white" /></div>
-                  <span className="font-medium text-[15px]">Grupo</span>
-                </div>
-                <div className="flex-1">
-                  <div className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 flex items-center gap-3 cursor-text transition-colors w-full text-[15px] shadow-sm">
-                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></div>
+              {newTaskData.task_type !== 'Lembrete' && (
+                <>
+                  <div className="flex items-center">
+                    <div className="w-40 flex items-center gap-3 text-slate-600">
+                      <div className="w-6 h-6 rounded bg-yellow-500 flex items-center justify-center"><Circle className="w-3 h-3 text-white fill-white" /></div>
+                      <span className="font-medium text-[15px]">Grupo</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 flex items-center gap-3 cursor-text transition-colors w-full text-[15px] shadow-sm">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></div>
+                        <input 
+                          type="text" 
+                          value={newTaskData.group_name}
+                          onChange={(e) => setNewTaskData({...newTaskData, group_name: e.target.value})}
+                          className="bg-transparent outline-none w-full text-slate-800"
+                          placeholder="Nome do grupo..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <div className="w-40 flex items-center gap-3 text-slate-600">
+                      <div className="w-6 h-6 rounded bg-[#579bfc] flex items-center justify-center"><User className="w-4 h-4 text-white" /></div>
+                      <span className="font-medium text-[15px]">Responsável</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 flex items-center justify-center cursor-pointer transition-colors w-full relative shadow-sm">
+                        <select 
+                          value={newTaskData.assignee_email || ''}
+                          onChange={(e) => setNewTaskData({...newTaskData, assignee_email: e.target.value})}
+                          className="bg-transparent w-full appearance-none outline-none cursor-pointer text-[15px] font-medium text-slate-800 empty:text-slate-400"
+                        >
+                          <option value="">- Sem responsável -</option>
+                          {workspaceUsers?.map((user: any) => (
+                            <option key={user.email} value={user.email}>{user.email.split('@')[0]}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <div className="w-40 flex items-center gap-3 text-slate-600">
+                      <div className="w-6 h-6 rounded bg-[#00c875] flex items-center justify-center"><AlignLeft className="w-4 h-4 text-white" /></div>
+                      <span className="font-medium text-[15px]">Status</span>
+                    </div>
+                    <div className="flex-1 relative">
+                      <select 
+                        value={newTaskData.status}
+                        onChange={(e) => setNewTaskData({...newTaskData, status: e.target.value})}
+                        className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full appearance-none outline-none cursor-pointer text-[15px] text-center font-medium shadow-sm"
+                      >
+                        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {newTaskData.task_type === 'Lembrete' && (
+                <div className="flex items-center">
+                  <div className="w-40 flex items-center gap-3 text-slate-600">
+                    <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
+                    <span className="font-medium text-[15px]">Data Inicial</span>
+                  </div>
+                  <div className="flex-1">
                     <input 
-                      type="text" 
-                      value={newTaskData.group_name}
-                      onChange={(e) => setNewTaskData({...newTaskData, group_name: e.target.value})}
-                      className="bg-transparent outline-none w-full text-slate-800"
-                      placeholder="Nome do grupo..."
+                      type="date"
+                      value={newTaskData.start_date || (creatingTaskDate ? creatingTaskDate.toISOString().split('T')[0] : '')}
+                      onChange={(e) => setNewTaskData({...newTaskData, start_date: e.target.value})}
+                      className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm"
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-center">
-                <div className="w-40 flex items-center gap-3 text-slate-600">
-                  <div className="w-6 h-6 rounded bg-[#579bfc] flex items-center justify-center"><User className="w-4 h-4 text-white" /></div>
-                  <span className="font-medium text-[15px]">Responsável</span>
-                </div>
-                <div className="flex-1">
-                  <div className="bg-white border border-slate-200 hover:border-slate-300 rounded-md px-4 py-2.5 flex items-center justify-center cursor-pointer transition-colors w-full relative shadow-sm">
-                    <select 
-                      value={newTaskData.assignee_email || ''}
-                      onChange={(e) => setNewTaskData({...newTaskData, assignee_email: e.target.value})}
-                      className="bg-transparent w-full appearance-none outline-none cursor-pointer text-[15px] font-medium text-slate-800 empty:text-slate-400"
-                    >
-                      <option value="">- Sem responsável -</option>
-                      {workspaceUsers?.map((user: any) => (
-                        <option key={user.email} value={user.email}>{user.email.split('@')[0]}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center">
-                <div className="w-40 flex items-center gap-3 text-slate-600">
-                  <div className="w-6 h-6 rounded bg-[#00c875] flex items-center justify-center"><AlignLeft className="w-4 h-4 text-white" /></div>
-                  <span className="font-medium text-[15px]">Status</span>
-                </div>
-                <div className="flex-1 relative">
-                  <select 
-                    value={newTaskData.status}
-                    onChange={(e) => setNewTaskData({...newTaskData, status: e.target.value})}
-                    className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full appearance-none outline-none cursor-pointer text-[15px] text-center font-medium shadow-sm"
-                  >
-                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
+              )}
 
               <div className="flex items-center">
                 <div className="w-40 flex items-center gap-3 text-slate-600">
                   <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
-                  <span className="font-medium text-[15px]">Prazo</span>
+                  <span className="font-medium text-[15px]">{newTaskData.task_type === 'Lembrete' ? 'Data Final' : 'Prazo'}</span>
                 </div>
                 <div className="flex-1">
                   <input 
@@ -1051,22 +1102,24 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <div className="w-40 flex items-center gap-3 text-slate-600">
-                  <div className="w-6 h-6 rounded bg-[#00c875] flex items-center justify-center"><AlignLeft className="w-4 h-4 text-white rotate-90" /></div>
-                  <span className="font-medium text-[15px]">Prioridade</span>
+              {newTaskData.task_type !== 'Lembrete' && (
+                <div className="flex items-center">
+                  <div className="w-40 flex items-center gap-3 text-slate-600">
+                    <div className="w-6 h-6 rounded bg-[#00c875] flex items-center justify-center"><AlignLeft className="w-4 h-4 text-white rotate-90" /></div>
+                    <span className="font-medium text-[15px]">Prioridade</span>
+                  </div>
+                  <div className="flex-1">
+                    <select 
+                      value={newTaskData.priority}
+                      onChange={(e) => setNewTaskData({...newTaskData, priority: e.target.value})}
+                      className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full appearance-none outline-none cursor-pointer text-[15px] text-center font-medium empty:text-slate-400 shadow-sm"
+                    >
+                      <option value="" disabled className="text-slate-400">- Selecione -</option>
+                      {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <select 
-                    value={newTaskData.priority}
-                    onChange={(e) => setNewTaskData({...newTaskData, priority: e.target.value})}
-                    className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2.5 w-full appearance-none outline-none cursor-pointer text-[15px] text-center font-medium empty:text-slate-400 shadow-sm"
-                  >
-                    <option value="" disabled className="text-slate-400">- Selecione -</option>
-                    {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-              </div>
+              )}
 
               <div className="flex items-center">
                 <div className="w-40 flex items-center gap-3 text-slate-600">
