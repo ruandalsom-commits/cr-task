@@ -984,6 +984,21 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                   <textarea 
                     value={newUpdateText}
                     onChange={(e) => setNewUpdateText(e.target.value)}
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (!items) return;
+                      for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image') !== -1) {
+                          const file = items[i].getAsFile();
+                          if (file) {
+                            const newFile = new File([file], `colado_${Date.now()}.png`, { type: file.type });
+                            setPendingFile(newFile);
+                            e.preventDefault();
+                            break;
+                          }
+                        }
+                      }
+                    }}
                     placeholder="Escreva uma atualização..." 
                     className="w-full min-h-[100px] resize-none outline-none text-slate-700 text-sm"
                     disabled={isUploading}
