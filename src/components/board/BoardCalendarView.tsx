@@ -41,6 +41,22 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
     );
   }
 
+  if (isLembrete) {
+    const iconEmoji = (task.priority && !PRIORITIES.includes(task.priority)) ? task.priority : '🔴';
+    return (
+      <div 
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+        className={`w-7 h-7 flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-110 hover:-translate-y-1 transition-all ${isOverlay ? 'scale-125 shadow-xl rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
+        title={task.title}
+      >
+        <span className="text-xl leading-none drop-shadow-sm">{iconEmoji}</span>
+      </div>
+    );
+  }
+
   return (
     <div 
       ref={setNodeRef}
@@ -50,10 +66,9 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
          e.stopPropagation();
          onClick?.();
       }}
-      className={`flex items-center gap-1.5 text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate ${!isLembrete ? 'text-white' : ''} rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
+      className={`flex items-center gap-1.5 text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate text-white rounded-sm font-medium hover:brightness-95 shadow-sm ${!isDragging && !isOverlay ? 'transition-all' : ''} ${bgColor} ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
       title={task.title}
     >
-      {isLembrete && <Bell className="w-3 h-3 shrink-0" />}
       <span className="truncate">{task.title}</span>
     </div>
   );
@@ -76,9 +91,11 @@ function DayCell({ dayObj, tasks, isToday, onTaskClick, onAddClick }: any) {
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 relative z-10 pb-6">
+      <div className="flex-1 overflow-y-auto no-scrollbar flex flex-wrap gap-1 content-start relative z-10 pb-6 px-1">
         {tasks.map((task: any) => (
-          <TaskChip key={task.id} task={task} onClick={() => onTaskClick(task)} />
+          <div key={task.id} className={task.task_type === 'Lembrete' ? 'w-auto' : 'w-full'}>
+            <TaskChip task={task} onClick={() => onTaskClick(task)} />
+          </div>
         ))}
       </div>
 
@@ -196,6 +213,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           due_date: d,
           start_date: d,
           task_type: 'Lembrete',
+          priority: dataToSave.priority || '🔴',
           position: (rawTasks?.length || 0) + 1 + index
         }));
         
@@ -1130,42 +1148,63 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
               )}
 
               {newTaskData.task_type === 'Lembrete' && (
-                <div className="flex items-start">
-                  <div className="w-40 flex items-center gap-3 text-slate-600 mt-2">
-                    <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
-                    <span className="font-medium text-[15px]">Datas Escolhidas</span>
-                  </div>
-                  <div className="flex-1 flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="date"
-                        onChange={(e) => {
-                          if (e.target.value && !newTaskData.selected_dates?.includes(e.target.value)) {
-                            setNewTaskData({...newTaskData, selected_dates: [...(newTaskData.selected_dates || []), e.target.value]});
-                          }
-                          e.target.value = '';
-                        }}
-                        className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2 w-48 outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
-                      />
-                      <span className="text-slate-400 text-sm italic">← Adicione mais dias</span>
+                <>
+                  <div className="flex items-start">
+                    <div className="w-40 flex items-center gap-3 text-slate-600 mt-2">
+                      <div className="w-6 h-6 rounded bg-[#a25ddc] flex items-center justify-center"><CalendarIcon className="w-4 h-4 text-white" /></div>
+                      <span className="font-medium text-[15px]">Datas Escolhidas</span>
                     </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {(newTaskData.selected_dates || []).map((dateStr: string) => (
-                        <div key={dateStr} className="flex items-center gap-1.5 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-md text-sm font-medium border border-amber-200">
-                          <span>{new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                          <button 
-                            type="button"
-                            onClick={() => setNewTaskData({...newTaskData, selected_dates: newTaskData.selected_dates.filter((d: string) => d !== dateStr)})}
-                            className="hover:bg-amber-200 text-amber-600 rounded-full p-0.5 transition-colors"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                    <div className="flex-1 flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="date"
+                          onChange={(e) => {
+                            if (e.target.value && !newTaskData.selected_dates?.includes(e.target.value)) {
+                              setNewTaskData({...newTaskData, selected_dates: [...(newTaskData.selected_dates || []), e.target.value]});
+                            }
+                            e.target.value = '';
+                          }}
+                          className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2 w-48 outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
+                        />
+                        <span className="text-slate-400 text-sm italic">← Adicione mais dias</span>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {(newTaskData.selected_dates || []).map((dateStr: string) => (
+                          <div key={dateStr} className="flex items-center gap-1.5 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-md text-sm font-medium border border-amber-200">
+                            <span>{new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                            <button 
+                              type="button"
+                              onClick={() => setNewTaskData({...newTaskData, selected_dates: newTaskData.selected_dates.filter((d: string) => d !== dateStr)})}
+                              className="hover:bg-amber-200 text-amber-600 rounded-full p-0.5 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center mt-2">
+                    <div className="w-40 flex items-center gap-3 text-slate-600">
+                      <div className="w-6 h-6 rounded bg-[#ffcc00] flex items-center justify-center"><Bell className="w-4 h-4 text-amber-900" /></div>
+                      <span className="font-medium text-[15px]">Ícone</span>
+                    </div>
+                    <div className="flex-1 flex gap-2">
+                      {['🔴', '🔵', '🟢', '🟡', '🟣', '⭐', '🔥', '🎉', '🔔', '✅'].map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setNewTaskData({...newTaskData, priority: emoji})}
+                          className={`w-9 h-9 flex items-center justify-center rounded-full text-xl transition-all hover:scale-110 hover:-translate-y-1 ${newTaskData.priority === emoji || (!newTaskData.priority && emoji === '🔴') ? 'bg-amber-100 ring-2 ring-amber-400 scale-110' : 'bg-slate-50 hover:bg-slate-100'}`}
+                        >
+                          {emoji}
+                        </button>
                       ))}
                     </div>
                   </div>
-                </div>
+                </>
               )}
 
               {newTaskData.task_type !== 'Lembrete' && (
