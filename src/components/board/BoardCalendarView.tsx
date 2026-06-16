@@ -268,6 +268,17 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     }
   });
 
+  const deleteTask = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      setTaskDetailsOpen(null);
+    }
+  });
+
   const filteredTasks = rawTasks?.filter((task: any) => {
     if (task.is_routine) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -683,6 +694,17 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 />
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <button 
+                  onClick={() => {
+                    if (confirm('Tem certeza que deseja excluir?')) {
+                      deleteTask.mutate(activeTask.id);
+                    }
+                  }} 
+                  className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                  title="Excluir"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
                 <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MessageSquare className="w-5 h-5" /></button>
                 <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MoreHorizontal className="w-5 h-5" /></button>
                 <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
