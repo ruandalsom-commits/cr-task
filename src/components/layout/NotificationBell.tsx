@@ -76,17 +76,24 @@ export function NotificationBell() {
   }, []);
 
   const notifiedSet = useRef<Set<string>>(new Set());
+  const initialLoadDone = useRef(false);
 
   useEffect(() => {
-    if (!notifications || notifications.length === 0) return;
+    if (!notifications) return;
+
+    if (!initialLoadDone.current) {
+      // Na primeira carga da página, apenas marca todos como processados para não subir pop-up antigo
+      notifications.forEach((notif: any) => notifiedSet.current.add(notif.id));
+      initialLoadDone.current = true;
+      return;
+    }
 
     notifications.forEach((notif: any) => {
-      // Se não está lida e ainda não disparamos o pop-up nesta sessão
+      // Se não está lida e é uma notificação nova (não estava no initial load)
       if (!notif.read && !notifiedSet.current.has(notif.id)) {
         notifiedSet.current.add(notif.id);
 
-        const isRecent = (new Date().getTime() - new Date(notif.created_at).getTime()) < 15000; // 15 segundos
-        if (isRecent && 'Notification' in window && Notification.permission === 'granted') {
+        if ('Notification' in window && Notification.permission === 'granted') {
           // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou...) para gerar o avatar
           const authorMatch = notif.message.split(' ')[0];
           const iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
