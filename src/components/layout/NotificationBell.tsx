@@ -144,11 +144,16 @@ export function NotificationBell() {
             <div className="flex items-center gap-3">
               {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default' && (
                 <button 
-                  onClick={() => Notification.requestPermission()}
+                  onClick={() => Notification.requestPermission().then(() => window.location.reload())}
                   className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded hover:bg-blue-200 font-semibold transition-colors"
                 >
                   Ativar pop-ups
                 </button>
+              )}
+              {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied' && (
+                <span className="text-[10px] text-red-500 font-medium" title="Para receber pop-ups, clique no ícone de cadeado na barra de endereços e permita as notificações.">
+                  Pop-ups Bloqueados 🔒
+                </span>
               )}
               {unreadCount > 0 && (
                 <button 
