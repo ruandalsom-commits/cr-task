@@ -209,7 +209,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       mentionEmails.forEach(email => {
         notifications.push({
           user_email: email,
-          message: `${currentUserName} mencionou você na tarefa "${taskDetailsOpen.title}"`,
+          message: `${userProfile?.email}||${currentUserName} mencionou você na tarefa "${taskDetailsOpen.title}"`,
           task_id: taskDetailsOpen.id
         });
       });
@@ -217,7 +217,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       assigneeEmails.forEach(email => {
         notifications.push({
           user_email: email,
-          message: `${currentUserName} atualizou a tarefa "${taskDetailsOpen.title}"`,
+          message: `${userProfile?.email}||${currentUserName} atualizou a tarefa "${taskDetailsOpen.title}"`,
           task_id: taskDetailsOpen.id
         });
       });

@@ -102,8 +102,18 @@ export function NotificationBell() {
         notifiedSet.current.add(notif.id);
 
         if ('Notification' in window && Notification.permission === 'granted') {
-          // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou... ou 'ruan.dalsom' atualizou...)
-          const authorMatch = notif.message.split(' ')[0];
+          // Extrai o email exato se existir o formato "email||mensagem"
+          let actualMessage = notif.message;
+          let authorEmail = '';
+          
+          if (notif.message.includes('||')) {
+            const parts = notif.message.split('||');
+            authorEmail = parts[0];
+            actualMessage = parts[1];
+          }
+
+          // Pega o nome do autor (ex: 'ruan.dalsom' de "ruan.dalsom atualizou...")
+          const authorMatch = actualMessage.split(' ')[0];
           
           const getFirstName = (str: string) => {
             const name = str.split('.')[0];
@@ -111,14 +121,16 @@ export function NotificationBell() {
           };
           
           const firstName = getFirstName(authorMatch);
-          let iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
+          // O fallback agora usa o email exato (se existir) para gerar o MESMO Dicebear do canto inferior esquerdo
+          const fallbackSeed = authorEmail || authorMatch;
+          let iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${fallbackSeed}`;
           let title = `Notificação de ${firstName}`;
-          let bodyText = notif.message.replace(authorMatch, firstName);
+          let bodyText = actualMessage.replace(authorMatch, firstName);
 
-          if (workspaceUsers) {
-             const matchedUser = workspaceUsers.find((u: any) => u.email.toLowerCase().startsWith(authorMatch.toLowerCase()));
-             if (matchedUser) {
-                iconUrl = matchedUser.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${matchedUser.email}`;
+          if (workspaceUsers && authorEmail) {
+             const matchedUser = workspaceUsers.find((u: any) => u.email === authorEmail);
+             if (matchedUser?.avatar_url) {
+                iconUrl = matchedUser.avatar_url;
              }
           }
 
@@ -218,7 +230,7 @@ export function NotificationBell() {
                       </div>
                       <div className="flex-1">
                         <p className={`text-sm ${notif.read ? 'text-slate-600' : 'text-slate-800 font-semibold'}`}>
-                          {notif.message}
+                          {notif.message.includes('||') ? notif.message.split('||')[1] : notif.message}
                         </p>
                         <span className="text-[10px] text-slate-400 mt-1 block">
                           {new Date(notif.created_at).toLocaleString('pt-BR')}
