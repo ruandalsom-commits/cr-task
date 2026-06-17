@@ -68,6 +68,47 @@ export function NotificationBell() {
 
   const unreadCount = notifications?.filter(n => !n.read).length || 0;
 
+  // Solicitar permissão para notificações do Windows/Navegador
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const notifiedSet = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!notifications || notifications.length === 0) return;
+
+    notifications.forEach((notif: any) => {
+      // Se não está lida e ainda não disparamos o pop-up nesta sessão
+      if (!notif.read && !notifiedSet.current.has(notif.id)) {
+        notifiedSet.current.add(notif.id);
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou...) para gerar o avatar
+          const authorMatch = notif.message.split(' ')[0];
+          const iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
+
+          const n = new Notification('Nova Notificação', {
+            body: notif.message,
+            icon: iconUrl,
+          });
+
+          n.onclick = async () => {
+            window.focus();
+            if (notif.task_id) {
+              const { data } = await supabase.from('tasks').select('board_id').eq('id', notif.task_id).single();
+              if (data?.board_id) {
+                window.location.href = `/boards/${data.board_id}?taskId=${notif.task_id}`;
+              }
+            }
+          };
+        }
+      }
+    });
+  }, [notifications]);
+
   return (
     <div className="relative">
       <button 
