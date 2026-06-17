@@ -85,7 +85,8 @@ export function NotificationBell() {
       if (!notif.read && !notifiedSet.current.has(notif.id)) {
         notifiedSet.current.add(notif.id);
 
-        if ('Notification' in window && Notification.permission === 'granted') {
+        const isRecent = (new Date().getTime() - new Date(notif.created_at).getTime()) < 15000; // 15 segundos
+        if (isRecent && 'Notification' in window && Notification.permission === 'granted') {
           // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou...) para gerar o avatar
           const authorMatch = notif.message.split(' ')[0];
           const iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
@@ -133,14 +134,24 @@ export function NotificationBell() {
         >
           <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
             <h3 className="font-bold text-slate-800">Notificações</h3>
-            {unreadCount > 0 && (
-              <button 
-                onClick={() => markAllAsRead.mutate()}
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" /> Marcar lidas
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default' && (
+                <button 
+                  onClick={() => Notification.requestPermission()}
+                  className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded hover:bg-blue-200 font-semibold transition-colors"
+                >
+                  Ativar pop-ups
+                </button>
+              )}
+              {unreadCount > 0 && (
+                <button 
+                  onClick={() => markAllAsRead.mutate()}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                >
+                  <Check className="w-3 h-3" /> Lidas
+                </button>
+              )}
+            </div>
           </div>
           
           <div className="max-h-[400px] overflow-y-auto">

@@ -969,8 +969,12 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-100 last:border-0 transition-colors"
                               >
-                                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
-                                  {u.email.charAt(0).toUpperCase()}
+                                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-slate-200">
+                                  {u.avatar_url ? (
+                                    <img src={u.avatar_url} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${u.email.split('@')[0]}`} className="w-full h-full object-cover" />
+                                  )}
                                 </div>
                                 <span className="text-sm text-slate-700 truncate">{u.email.split('@')[0]}</span>
                               </button>
