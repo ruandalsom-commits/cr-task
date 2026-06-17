@@ -475,7 +475,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       assigneeEmails.forEach(email => {
         notifications.push({
           user_email: email,
-          message: `Nova atualização na tarefa: ${taskDetailsOpen.title}`,
+          message: `${currentUserName} atualizou a tarefa "${taskDetailsOpen.title}"`,
           task_id: taskDetailsOpen.id
         });
       });

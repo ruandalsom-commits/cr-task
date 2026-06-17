@@ -19,6 +19,14 @@ export function NotificationBell() {
     }
   });
 
+  const { data: workspaceUsers } = useQuery({
+    queryKey: ['workspace_users'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('*');
+      return data || [];
+    }
+  });
+
   const { data: notifications } = useQuery({
     queryKey: ['notifications', userProfile?.email],
     queryFn: async () => {
@@ -94,11 +102,19 @@ export function NotificationBell() {
         notifiedSet.current.add(notif.id);
 
         if ('Notification' in window && Notification.permission === 'granted') {
-          // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou...) para gerar o avatar
+          // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou... ou 'ruan.dalsom' atualizou...)
           const authorMatch = notif.message.split(' ')[0];
-          const iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
+          let iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
+          let title = `Notificação de ${authorMatch}`;
 
-          const n = new Notification('Nova Notificação', {
+          if (workspaceUsers) {
+             const matchedUser = workspaceUsers.find((u: any) => u.email.toLowerCase().startsWith(authorMatch.toLowerCase()));
+             if (matchedUser?.avatar_url) {
+                iconUrl = matchedUser.avatar_url;
+             }
+          }
+
+          const n = new Notification(title, {
             body: notif.message,
             icon: iconUrl,
           });
