@@ -302,7 +302,6 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const filteredTasks = rawTasks?.filter((task: any) => {
     if (task.is_routine) return false;
-    if (task.task_type === 'Lembrete' && task.assignee_email !== userProfile?.email) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (filterStatus && task.status !== filterStatus) return false;
     return true;
