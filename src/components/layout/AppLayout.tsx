@@ -72,7 +72,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             if ('Notification' in window && Notification.permission === 'granted') {
               const n = new Notification('🔔 Lembrete do Calendário', {
                 body: `Está na hora: ${lembrete.title}`,
-                icon: 'https://api.dicebear.com/7.x/notionists/svg?seed=reminders',
+                icon: '/logo.png',
               });
               n.onclick = () => {
                 window.focus();
