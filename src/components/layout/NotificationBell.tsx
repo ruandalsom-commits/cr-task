@@ -104,18 +104,26 @@ export function NotificationBell() {
         if ('Notification' in window && Notification.permission === 'granted') {
           // Pega a primeira palavra da mensagem (ex: 'ruan.dalsom' mencionou... ou 'ruan.dalsom' atualizou...)
           const authorMatch = notif.message.split(' ')[0];
+          
+          const getFirstName = (str: string) => {
+            const name = str.split('.')[0];
+            return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+          };
+          
+          const firstName = getFirstName(authorMatch);
           let iconUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${authorMatch}`;
-          let title = `Notificação de ${authorMatch}`;
+          let title = `Notificação de ${firstName}`;
+          let bodyText = notif.message.replace(authorMatch, firstName);
 
           if (workspaceUsers) {
              const matchedUser = workspaceUsers.find((u: any) => u.email.toLowerCase().startsWith(authorMatch.toLowerCase()));
-             if (matchedUser?.avatar_url) {
-                iconUrl = matchedUser.avatar_url;
+             if (matchedUser) {
+                iconUrl = matchedUser.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${matchedUser.email}`;
              }
           }
 
           const n = new Notification(title, {
-            body: notif.message,
+            body: bodyText,
             icon: iconUrl,
           });
 
