@@ -44,6 +44,52 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, handleLogout]);
 
+  // Checagem global de Lembretes do Calendário
+  useEffect(() => {
+    if (pathname === '/login') return;
+
+    const checkReminders = async () => {
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const hours = String(today.getHours()).padStart(2, '0');
+      const mins = String(today.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${mins}`;
+
+      const { data } = await supabase
+        .from('tasks')
+        .select('id, title, due_time, board_id')
+        .eq('task_type', 'Lembrete')
+        .eq('due_date', dateStr)
+        .eq('due_time', timeStr);
+
+      if (data && data.length > 0) {
+        data.forEach((lembrete: any) => {
+          const notifId = `lembrete-${lembrete.id}-${timeStr}`;
+          const alreadyNotified = localStorage.getItem(notifId);
+          
+          if (!alreadyNotified) {
+            localStorage.setItem(notifId, 'true');
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const n = new Notification('🔔 Lembrete do Calendário', {
+                body: `Está na hora: ${lembrete.title}`,
+                icon: 'https://api.dicebear.com/7.x/notionists/svg?seed=reminders',
+              });
+              n.onclick = () => {
+                window.focus();
+                window.location.href = `/boards/${lembrete.board_id}`;
+              };
+            }
+          }
+        });
+      }
+    };
+
+    checkReminders();
+    const intervalId = setInterval(checkReminders, 60000); // Roda a cada 1 minuto
+    
+    return () => clearInterval(intervalId);
+  }, [pathname]);
+
   if (pathname === '/login') {
     return <main className="flex-1 w-full bg-[#0a0a0a] min-h-screen">{children}</main>;
   }

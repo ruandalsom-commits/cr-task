@@ -127,7 +127,8 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     notes: '',
     budget: '',
     task_type: 'Tarefa',
-    selected_dates: []
+    selected_dates: [],
+    due_time: ''
   });
 
   useEffect(() => {
@@ -211,6 +212,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           group_name: dataToSave.group_name || 'Tarefas pendentes',
           status: 'Pendente',
           due_date: d,
+          due_time: dataToSave.due_time || null,
           start_date: d,
           task_type: 'Lembrete',
           priority: dataToSave.priority || '🔴',
@@ -1202,6 +1204,22 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center mt-2">
+                    <div className="w-40 flex items-center gap-3 text-slate-600">
+                      <div className="w-6 h-6 rounded bg-indigo-400 flex items-center justify-center"><Clock className="w-4 h-4 text-white" /></div>
+                      <span className="font-medium text-[15px]">Horário</span>
+                    </div>
+                    <div className="flex-1 flex items-center gap-2">
+                      <input 
+                        type="time"
+                        value={newTaskData.due_time || ''}
+                        onChange={(e) => setNewTaskData({...newTaskData, due_time: e.target.value})}
+                        className="bg-white border border-slate-200 hover:border-slate-300 text-slate-800 rounded-md px-4 py-2 outline-none text-[15px] font-medium focus:ring-1 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      />
+                      <span className="text-slate-400 text-sm italic">Opcional: notificação no horário</span>
                     </div>
                   </div>
 
