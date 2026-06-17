@@ -215,6 +215,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           due_time: dataToSave.due_time || null,
           start_date: d,
           task_type: 'Lembrete',
+          assignee_email: userProfile?.email || null,
           priority: dataToSave.priority || '🔴',
           position: (rawTasks?.length || 0) + 1 + index
         }));
@@ -301,6 +302,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const filteredTasks = rawTasks?.filter((task: any) => {
     if (task.is_routine) return false;
+    if (task.task_type === 'Lembrete' && task.assignee_email !== userProfile?.email) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (filterStatus && task.status !== filterStatus) return false;
     return true;

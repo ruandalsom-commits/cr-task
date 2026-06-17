@@ -55,10 +55,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       const mins = String(today.getMinutes()).padStart(2, '0');
       const timeStr = `${hours}:${mins}`;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data } = await supabase
         .from('tasks')
         .select('id, title, due_time, board_id')
         .eq('task_type', 'Lembrete')
+        .eq('assignee_email', user.email)
         .eq('due_date', dateStr)
         .eq('due_time', timeStr);
 
