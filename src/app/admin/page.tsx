@@ -271,26 +271,20 @@ export default function AdminPage() {
                   <tr key={p.id}>
                     <td className="py-3 text-slate-700">{p.email}</td>
                     <td className="py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${p.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {p.role === 'admin' ? 'Administrador' : 'Usuário Padrão'}
-                      </span>
+                      <select 
+                        value={p.role || 'user'} 
+                        onChange={(e) => toggleRole.mutate({ userId: p.id, newRole: e.target.value })}
+                        className={`px-2 py-1.5 rounded text-xs font-bold outline-none cursor-pointer border-transparent ${p.role === 'admin' ? 'bg-blue-100 text-blue-700' : p.role === 'leader' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}
+                      >
+                        <option value="user" className="bg-white text-slate-700">Usuário Padrão</option>
+                        <option value="leader" className="bg-white text-slate-700">Líder do Setor</option>
+                        <option value="admin" className="bg-white text-slate-700">Administrador</option>
+                      </select>
                     </td>
                     <td className="py-3 text-right">
-                      {p.role === 'admin' ? (
-                        <button 
-                          onClick={() => toggleRole.mutate({ userId: p.id, newRole: 'user' })}
-                          className="text-red-500 hover:text-red-700 font-medium"
-                        >
-                          Remover Admin
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => toggleRole.mutate({ userId: p.id, newRole: 'admin' })}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          Tornar Admin
-                        </button>
-                      )}
+                      {p.role === 'admin' && <span className="text-xs text-blue-500">Acesso Total</span>}
+                      {p.role === 'leader' && <span className="text-xs text-purple-500">Acesso de Líder</span>}
+                      {(p.role === 'user' || !p.role) && <span className="text-xs text-slate-400">Restrito</span>}
                     </td>
                   </tr>
                 ))}

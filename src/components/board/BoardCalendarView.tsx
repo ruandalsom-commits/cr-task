@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
-import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type, MessageSquare, MoreHorizontal, X, Paperclip, Activity, Trash2, Bell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, User, Filter, Calendar as CalendarIcon, MessageCirclePlus, AlignLeft, Flag, FileText, DollarSign, Clock, Users, Circle, CheckCircle2, ChevronDown, Type, MessageSquare, MoreHorizontal, X, Paperclip, Activity, Trash2, Bell, Eye, EyeOff } from 'lucide-react';
 
 import { DndContext, DragEndEvent, DragStartEvent, useDraggable, useDroppable, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { StatusCell } from './StatusCell';
@@ -42,17 +42,21 @@ function TaskChip({ task, onClick, isOverlay = false }: any) {
   }
 
   if (isLembrete) {
-    const iconEmoji = (task.priority && !PRIORITIES.includes(task.priority)) ? task.priority : '🔴';
+    const iconEmoji = (task.priority && !PRIORITIES.includes(task.priority)) ? task.priority : '🔔';
     return (
       <div 
         ref={setNodeRef}
         {...listeners}
         {...attributes}
         onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-        className={`w-7 h-7 flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-110 hover:-translate-y-1 transition-all ${isOverlay ? 'scale-125 shadow-xl rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
-        title={task.title}
+        className={`flex items-center gap-1.5 text-[11px] px-2 py-1 cursor-grab active:cursor-grabbing truncate rounded-md font-medium shadow-sm transition-all bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 ${isOverlay ? 'shadow-xl scale-105 rotate-1 opacity-90 cursor-grabbing !transition-none' : ''}`}
+        title={`${task.title}${task.due_time ? ` - ${task.due_time}` : ''}`}
       >
-        <span className="text-xl leading-none drop-shadow-sm">{iconEmoji}</span>
+        <span className="text-sm leading-none shrink-0">{iconEmoji}</span>
+        {task.due_time && (
+          <span className="font-bold text-amber-700 shrink-0 bg-amber-100 px-1 rounded-sm">{task.due_time}</span>
+        )}
+        <span className="truncate">{task.title}</span>
       </div>
     );
   }
@@ -158,7 +162,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 3000
+    refetchInterval: 30000
   });
 
   const { data: userProfile } = useQuery({
@@ -176,6 +180,15 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       return data || [];
     }
   });
+
+  const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
+  const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
+  
+  const canDeleteTask = (task: any) => {
+    if (isLeaderOrAdmin) return true;
+    if (task.assignee_email === userProfile?.email) return true;
+    return false;
+  };
 
   const [drawerTab, setDrawerTab] = useState<'updates'|'files'|'activity'>('updates');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -301,6 +314,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
   });
 
   const filteredTasks = rawTasks?.filter((task: any) => {
+    if (task.is_private && !isLeaderOrAdmin && task.assignee_email !== userProfile?.email) return false;
     if (task.is_routine) return false;
     if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (filterStatus && task.status !== filterStatus) return false;
@@ -388,7 +402,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
       return data;
     },
     enabled: !!taskDetailsOpen?.id,
-    refetchInterval: 3000
+    refetchInterval: 30000
   });
 
   const [newUpdateText, setNewUpdateText] = useState('');
@@ -529,6 +543,11 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const updateTaskDate = useMutation({
     mutationFn: async ({ id, date }: { id: string, date: string }) => {
+      const taskToUpdate = rawTasks?.find((t: any) => t.id === id);
+      if (taskToUpdate && !canDeleteTask(taskToUpdate)) {
+        alert("Você não tem permissão para alterar o prazo desta tarefa.");
+        throw new Error("Unauthorized");
+      }
       const { error } = await supabase.from('tasks').update({ due_date: date }).eq('id', id);
       if (error) throw error;
     },
@@ -702,11 +721,17 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           <div className="fixed top-0 right-0 h-screen w-[600px] bg-white shadow-2xl z-50 border-l border-slate-200 flex flex-col animate-in slide-in-from-right-full">
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
               <div className="flex items-center gap-2 group/title w-full mr-4 relative">
+                {activeTask.is_private && <span title="Privada"><EyeOff className="w-5 h-5 text-red-500 shrink-0" /></span>}
                 <input 
                   type="text" 
                   defaultValue={activeTask.title} 
                   onBlur={async (e) => {
                     if (e.target.value !== activeTask.title) {
+                      if (!canDeleteTask(activeTask)) {
+                        alert("Você não tem permissão para alterar esta tarefa.");
+                        e.target.value = activeTask.title;
+                        return;
+                      }
                       const { error } = await supabase.from('tasks').update({ title: e.target.value }).eq('id', activeTask.id);
                       if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
                     }
@@ -715,17 +740,31 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                 />
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button 
-                  onClick={() => {
-                    if (confirm('Tem certeza que deseja excluir?')) {
-                      deleteTask.mutate(activeTask.id);
-                    }
-                  }} 
-                  className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
-                  title="Excluir"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                {isLeaderOrAdmin && (
+                  <button 
+                    onClick={async () => {
+                      const { error } = await supabase.from('tasks').update({ is_private: !activeTask.is_private }).eq('id', activeTask.id);
+                      if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                    }}
+                    className={`p-2 rounded-md transition-colors ${activeTask.is_private ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'hover:bg-slate-100 text-slate-400'}`}
+                    title={activeTask.is_private ? "Privada (Apenas Admins/Líderes)" : "Pública"}
+                  >
+                    {activeTask.is_private ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                )}
+                {canDeleteTask(activeTask) && (
+                  <button 
+                    onClick={() => {
+                      if (confirm('Tem certeza que deseja excluir?')) {
+                        deleteTask.mutate(activeTask.id);
+                      }
+                    }} 
+                    className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
                 <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MessageSquare className="w-5 h-5" /></button>
                 <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MoreHorizontal className="w-5 h-5" /></button>
                 <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
@@ -748,44 +787,76 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                   </div>
                 </>
               )}
-              {activeTask.task_type === 'Lembrete' && (
+              {activeTask.task_type === 'Lembrete' ? (
+                <>
+                  <div className="flex flex-col gap-2 w-32 relative z-10">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Data do Lembrete</span>
+                    <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
+                      <span className={activeTask.due_date ? 'text-slate-700' : 'text-slate-400'}>
+                        {activeTask.due_date ? new Date(activeTask.due_date).toLocaleDateString('pt-BR') : '-'}
+                      </span>
+                      <input 
+                        type="date" 
+                        defaultValue={activeTask.due_date || ''}
+                        onChange={async (e) => {
+                          if (!canDeleteTask(activeTask)) {
+                            alert("Você não tem permissão para alterar esta tarefa.");
+                            return;
+                          }
+                          const { error } = await supabase.from('tasks').update({ due_date: e.target.value, start_date: e.target.value }).eq('id', activeTask.id);
+                          if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 w-32 relative z-10">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Horário</span>
+                    <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
+                      <span className={activeTask.due_time ? 'text-slate-700' : 'text-slate-400'}>
+                        {activeTask.due_time || '--:--'}
+                      </span>
+                      <input 
+                        type="time" 
+                        defaultValue={activeTask.due_time || ''}
+                        onChange={async (e) => {
+                          if (!canDeleteTask(activeTask)) {
+                            alert("Você não tem permissão para alterar esta tarefa.");
+                            return;
+                          }
+                          const { error } = await supabase.from('tasks').update({ due_time: e.target.value }).eq('id', activeTask.id);
+                          if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
                 <div className="flex flex-col gap-2 w-32 relative z-10">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Início</span>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Prazo</span>
                   <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
-                    <span className={activeTask.start_date ? 'text-slate-700' : 'text-slate-400'}>
-                      {activeTask.start_date ? new Date(activeTask.start_date).toLocaleDateString('pt-BR') : '-'}
+                    <span className={activeTask.due_date ? 'text-slate-700' : 'text-slate-400'}>
+                      {activeTask.due_date ? new Date(activeTask.due_date).toLocaleDateString('pt-BR') : '-'}
                     </span>
                     <input 
                       type="date" 
-                      defaultValue={activeTask.start_date || ''}
+                      defaultValue={activeTask.due_date || ''}
                       onChange={async (e) => {
-                        const { error } = await supabase.from('tasks').update({ start_date: e.target.value }).eq('id', activeTask.id);
-                        if (!error) queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                        if (!canDeleteTask(activeTask)) {
+                          alert("Você não tem permissão para alterar esta tarefa.");
+                          return;
+                        }
+                        const { error } = await supabase.from('tasks').update({ due_date: e.target.value }).eq('id', activeTask.id);
+                        if (!error) {
+                          queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+                        }
                       }}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </div>
                 </div>
               )}
-              <div className="flex flex-col gap-2 w-32 relative z-10">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{activeTask.task_type === 'Lembrete' ? 'Fim' : 'Prazo'}</span>
-                <div className="w-full h-8 flex items-center justify-center border border-slate-200 rounded-full bg-white text-xs font-medium relative date-hack overflow-hidden cursor-pointer hover:border-blue-400 transition-colors">
-                  <span className={activeTask.due_date ? 'text-slate-700' : 'text-slate-400'}>
-                    {activeTask.due_date ? new Date(activeTask.due_date).toLocaleDateString('pt-BR') : '-'}
-                  </span>
-                  <input 
-                    type="date" 
-                    defaultValue={activeTask.due_date || ''}
-                    onChange={async (e) => {
-                      const { error } = await supabase.from('tasks').update({ due_date: e.target.value }).eq('id', activeTask.id);
-                      if (!error) {
-                        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                </div>
-              </div>
               {activeTask.task_type !== 'Lembrete' && (
                 <div className="flex flex-col gap-2 w-16 items-center relative z-20">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pessoa</span>

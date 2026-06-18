@@ -20,6 +20,7 @@ import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { Reactions } from './Reactions';
 import { UpdateContent } from './UpdateContent';
+import { Eye, EyeOff } from 'lucide-react';
 
 const STATUSES = ['Pendente', 'Trabalhando', 'Travado', 'Feito'];
 
@@ -39,7 +40,7 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 3000
+    refetchInterval: 30000
   });
 
   // Estado local para otimizar o drag & drop
@@ -153,14 +154,36 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
     }
   }, [rawTasks]);
 
+  const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
+  const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
+  
+  const canDeleteTask = (task: any) => {
+    if (isLeaderOrAdmin) return true;
+    if (task.assignee_email === userProfile?.email) return true;
+    return false;
+  };
+
   const updateTaskStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      const taskToUpdate = rawTasks?.find((t: any) => t.id === id);
+      if (taskToUpdate && !canDeleteTask(taskToUpdate)) {
+        alert("Você não tem permissão para alterar o status desta tarefa.");
+        throw new Error("Unauthorized");
+      }
       const { error } = await supabase.from('tasks').update({ status }).eq('id', id);
       if (error) throw error;
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     }
+  });
+
+  const updateTask = useMutation({
+    mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
+      const { error } = await supabase.from('tasks').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', boardId] })
   });
 
   const sensors = useSensors(
@@ -174,7 +197,10 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   const columnsData = STATUSES.map(status => ({
     id: status,
     title: status,
-    tasks: tasks.filter(t => !t.is_routine && t.task_type !== 'Lembrete' && (t.status || 'Pendente') === status)
+    tasks: tasks.filter(t => {
+      if (t.is_private && !isLeaderOrAdmin && t.assignee_email !== userProfile?.email) return false;
+      return !t.is_routine && t.task_type !== 'Lembrete' && (t.status || 'Pendente') === status;
+    })
   }));
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -257,8 +283,22 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
           <div className="fixed inset-0 bg-slate-900/20 z-40" onClick={() => setTaskDetailsOpen(null)}></div>
           <div className="fixed top-0 right-0 h-screen w-[600px] bg-white shadow-2xl z-50 border-l border-slate-200 flex flex-col animate-in slide-in-from-right-full">
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-800">{taskDetailsOpen.title}</h2>
-              <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                {taskDetailsOpen.is_private && <span title="Privada"><EyeOff className="w-5 h-5 text-red-500" /></span>}
+                {taskDetailsOpen.title}
+              </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                {isLeaderOrAdmin && (
+                  <button 
+                    onClick={() => {
+                      updateTask.mutate({ id: taskDetailsOpen.id, updates: { is_private: !taskDetailsOpen.is_private } })
+                    }}
+                    className={`p-2 rounded-md transition-colors ${taskDetailsOpen.is_private ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'hover:bg-slate-100 text-slate-400'}`}
+                    title={taskDetailsOpen.is_private ? "Privada (Apenas Admins/Líderes)" : "Pública"}
+                  >
+                    {taskDetailsOpen.is_private ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                )}
                 <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>

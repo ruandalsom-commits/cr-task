@@ -8,7 +8,7 @@ import { PriorityCell } from './PriorityCell';
 import { AssigneeCell } from './AssigneeCell';
 import { Reactions } from './Reactions';
 import { UpdateContent } from './UpdateContent';
-import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal, MessageCirclePlus, AlertCircle, CheckCircle2, Search, UserPlus, Sparkles, FileText, Calendar } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, X, Paperclip, Activity, Copy, Download, Archive, MoreHorizontal, MessageCirclePlus, AlertCircle, CheckCircle2, Search, UserPlus, Sparkles, FileText, Calendar, Eye, EyeOff } from 'lucide-react';
 
 const TimelineBar = ({ progress, color }: { progress: number, color: string }) => (
   <div className="flex items-center w-full">
@@ -107,7 +107,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
       return data;
     },
     enabled: !!taskDetailsOpen?.id,
-    refetchInterval: 2000
+    refetchInterval: 30000
   });
 
   const { data: userProfile } = useQuery({
@@ -121,10 +121,19 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const { data: workspaceUsers } = useQuery({
     queryKey: ['workspace_users'],
     queryFn: async () => {
-      const { data: profiles } = await supabase.from('profiles').select('email, avatar_url');
+      const { data: profiles } = await supabase.from('profiles').select('email, avatar_url, role');
       return profiles || [];
     }
   });
+
+  const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
+  const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
+  
+  const canDeleteTask = (task: any) => {
+    if (isLeaderOrAdmin) return true;
+    if (task.assignee_email === userProfile?.email) return true;
+    return false;
+  };
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -333,7 +342,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
       return [...(localTasks || []), ...externalTasks];
     },
-    refetchInterval: 3000
+    refetchInterval: 30000
   });
 
   const deleteTask = useMutation({
@@ -349,6 +358,11 @@ export function BoardTableView({ boardId }: { boardId: string }) {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
+      const taskToUpdate = tasks?.find((t: any) => t.id === id);
+      if (taskToUpdate && !canDeleteTask(taskToUpdate)) {
+        alert("Você não tem permissão para alterar esta tarefa.");
+        throw new Error("Unauthorized");
+      }
       const { error } = await supabase.from('tasks').update(updates).eq('id', id);
       if (error) throw error;
     },
@@ -377,8 +391,18 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   }, [tasks]);
 
   const handleBulkDelete = async () => {
-    if (confirm(`Tem certeza que deseja excluir ${selectedTasks.length} tarefas?`)) {
-      for (const id of selectedTasks) {
+    const deletableTasks = selectedTasks.filter(id => {
+      const task = tasks?.find((t: any) => t.id === id);
+      return task && canDeleteTask(task);
+    });
+
+    if (deletableTasks.length === 0) {
+      alert("Você não tem permissão para excluir as tarefas selecionadas.");
+      return;
+    }
+
+    if (confirm(`Tem certeza que deseja excluir ${deletableTasks.length} tarefa(s)${deletableTasks.length < selectedTasks.length ? ' (ignorando as sem permissão)' : ''}?`)) {
+      for (const id of deletableTasks) {
         await supabase.from('tasks').delete().eq('id', id);
       }
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
@@ -395,6 +419,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   }
 
   const filteredTasks = tasks?.filter((task: any) => {
+    if (task.is_private && !isLeaderOrAdmin && task.assignee_email !== userProfile?.email) return false;
     if (task.is_routine) return false; // Filtra as rotinas
     if (task.task_type === 'Lembrete') return false; // Lembretes ficam APENAS no Calendário
     if (filterStatus && task.status !== filterStatus) return false;
@@ -545,13 +570,15 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                             />
                           </div>
                           <div className="flex items-center gap-1 bg-transparent px-2 opacity-0 group-hover/title:opacity-100 transition-opacity absolute right-0 top-0 h-full">
-                            <button 
-                              onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
-                              className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-[18px] h-[18px] stroke-[1.5]" />
-                            </button>
+                            {canDeleteTask(task) && (
+                              <button 
+                                onClick={() => { if(confirm('Excluir esta tarefa?')) deleteTask.mutate(task.id); }}
+                                className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-100 rounded transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-[18px] h-[18px] stroke-[1.5]" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -855,8 +882,36 @@ export function BoardTableView({ boardId }: { boardId: string }) {
           {/* Gaveta */}
           <div className="fixed top-0 right-0 h-screen w-[600px] bg-white shadow-2xl z-50 border-l border-slate-200 flex flex-col animate-in slide-in-from-right-full">
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-800">{activeTask.title}</h2>
-              <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                {activeTask.is_private && <span title="Privada"><EyeOff className="w-5 h-5 text-red-500" /></span>}
+                {activeTask.title}
+              </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                {isLeaderOrAdmin && (
+                  <button 
+                    onClick={() => {
+                      updateTask.mutate({ id: activeTask.id, updates: { is_private: !activeTask.is_private } })
+                    }}
+                    className={`p-2 rounded-md transition-colors ${activeTask.is_private ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'hover:bg-slate-100 text-slate-400'}`}
+                    title={activeTask.is_private ? "Privada (Apenas Admins/Líderes)" : "Pública"}
+                  >
+                    {activeTask.is_private ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                )}
+                {canDeleteTask(activeTask) && (
+                  <button 
+                    onClick={() => {
+                      if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                        deleteTask.mutate(activeTask.id);
+                        setTaskDetailsOpen(null);
+                      }
+                    }}
+                    className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
                 <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MessageSquare className="w-5 h-5" /></button>
                 <button className="p-2 hover:bg-slate-100 rounded-md text-slate-400 transition-colors"><MoreHorizontal className="w-5 h-5" /></button>
                 <button onClick={() => setTaskDetailsOpen(null)} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
