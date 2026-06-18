@@ -157,9 +157,23 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
   const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
   
+  const { data: boardInfo } = useQuery({
+    queryKey: ['board_info', boardId],
+    queryFn: async () => {
+      const { data } = await supabase.from('boards').select('name').eq('id', boardId).single();
+      return data;
+    }
+  });
+
+  const boardName = boardInfo?.name || '';
+  const isGeneralBoard = boardName.toLowerCase().includes('projeto') || boardName.toLowerCase().includes('panorama') || boardName.toLowerCase().includes('geral');
+  const isBoardOwner = userProfile?.email?.toLowerCase().includes(boardName.toLowerCase().trim());
+  const canEditBoard = isLeaderOrAdmin || isGeneralBoard || isBoardOwner || !boardName;
+
   const canDeleteTask = (task: any) => {
     if (isLeaderOrAdmin) return true;
-    if (task.assignee_email === userProfile?.email) return true;
+    if (canEditBoard && task.assignee_email === userProfile?.email) return true;
+    if (isBoardOwner) return true;
     return false;
   };
 
@@ -204,6 +218,10 @@ export function BoardKanbanView({ boardId }: { boardId: string }) {
   }));
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (!canEditBoard) {
+      alert("Você não tem permissão para alterar tarefas neste quadro.");
+      return;
+    }
     setActiveId(event.active.id as string);
   };
 

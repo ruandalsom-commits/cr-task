@@ -184,9 +184,23 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
   const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
   const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
   
+  const { data: boardInfo } = useQuery({
+    queryKey: ['board_info', boardId],
+    queryFn: async () => {
+      const { data } = await supabase.from('boards').select('name').eq('id', boardId).single();
+      return data;
+    }
+  });
+
+  const boardName = boardInfo?.name || '';
+  const isGeneralBoard = boardName.toLowerCase().includes('projeto') || boardName.toLowerCase().includes('panorama') || boardName.toLowerCase().includes('geral');
+  const isBoardOwner = userProfile?.email?.toLowerCase().includes(boardName.toLowerCase().trim());
+  const canEditBoard = isLeaderOrAdmin || isGeneralBoard || isBoardOwner || !boardName;
+
   const canDeleteTask = (task: any) => {
     if (isLeaderOrAdmin) return true;
-    if (task.assignee_email === userProfile?.email) return true;
+    if (canEditBoard && task.assignee_email === userProfile?.email) return true;
+    if (isBoardOwner) return true;
     return false;
   };
 
@@ -211,6 +225,10 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
 
   const createTask = useMutation({
     mutationFn: async (dataToSave: any) => {
+      if (!canEditBoard) {
+        alert("Você não tem permissão para criar tarefas neste quadro.");
+        throw new Error("Unauthorized");
+      }
       let dateStr = dataToSave.due_date;
       if (!dateStr && creatingTaskDate) {
         const d = new Date(creatingTaskDate.getTime());
@@ -228,7 +246,7 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
           due_time: dataToSave.due_time || null,
           start_date: d,
           task_type: 'Lembrete',
-          assignee_email: userProfile?.email || null,
+          assignee_email: null,
           priority: dataToSave.priority || '🔴',
           position: (rawTasks?.length || 0) + 1 + index
         }));
@@ -565,6 +583,10 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
   );
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (!canEditBoard) {
+      alert("Você não tem permissão para alterar datas neste quadro.");
+      return;
+    }
     const { active } = event;
     const task = rawTasks?.find((t: any) => t.id === active.id);
     if (task) {
@@ -593,12 +615,14 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
     <div className="flex flex-col h-full bg-white relative">
       {/* Toolbar do Calendário */}
       <div className="flex items-center gap-4 p-6 border-b border-slate-200">
+        {canEditBoard && (
         <div className="flex bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors overflow-hidden h-8">
            <button onClick={() => setCreatingTaskDate(new Date())} className="px-4 font-medium text-sm">Criar tarefa</button>
            <button onClick={() => setCreatingTaskDate(new Date())} className="px-2 border-l border-blue-700 flex items-center justify-center">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M6 9l6 6 6-6"/></svg>
            </button>
         </div>
+        )}
         
         <div className="h-8 flex items-center border border-slate-200 rounded px-3 w-48 focus-within:border-blue-500 transition-colors group bg-white">
           <Search className="w-4 h-4 text-slate-400 group-focus-within:text-blue-500" />
@@ -700,7 +724,10 @@ export function BoardCalendarView({ boardId }: { boardId: string }) {
                   tasks={tasksOnThisDay}
                   isToday={isToday(dayObj.date)}
                   onTaskClick={setTaskDetailsOpen}
-                  onAddClick={() => setCreatingTaskDate(dayObj.date)}
+                  onAddClick={() => {
+                    if (canEditBoard) setCreatingTaskDate(dayObj.date);
+                    else alert('Você não tem permissão para criar tarefas/lembretes neste quadro.');
+                  }}
                 />
               );
             })}

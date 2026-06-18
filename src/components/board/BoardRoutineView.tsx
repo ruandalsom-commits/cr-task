@@ -34,13 +34,37 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
     { key: 'fri', label: 'Sexta' }
   ];
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['current_user'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    }
+  });
+
   const { data: workspaceUsers } = useQuery({
     queryKey: ['workspace_users'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('email, avatar_url');
+      const { data } = await supabase.from('profiles').select('email, avatar_url, role');
       return data || [];
     }
   });
+
+  const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
+  const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
+  
+  const { data: boardInfo } = useQuery({
+    queryKey: ['board_info', boardId],
+    queryFn: async () => {
+      const { data } = await supabase.from('boards').select('name').eq('id', boardId).single();
+      return data;
+    }
+  });
+
+  const boardName = boardInfo?.name || '';
+  const isGeneralBoard = boardName.toLowerCase().includes('projeto') || boardName.toLowerCase().includes('panorama') || boardName.toLowerCase().includes('geral');
+  const isBoardOwner = userProfile?.email?.toLowerCase().includes(boardName.toLowerCase().trim());
+  const canEditBoard = isLeaderOrAdmin || isGeneralBoard || isBoardOwner || !boardName;
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', boardId],
@@ -88,6 +112,10 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
   });
 
   const toggleDayStatus = (task: any, dayKey: string) => {
+    if (!canEditBoard) {
+      alert("Você não tem permissão para alterar rotinas neste quadro.");
+      return;
+    }
     const currentRoutine = task.routine_status || {};
     
     // Verifica se o dia é ativo para esta rotina
@@ -109,6 +137,10 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
   };
 
   const resetAllRoutines = async () => {
+    if (!canEditBoard) {
+      alert("Você não tem permissão para finalizar a semana neste quadro.");
+      return;
+    }
     if (!confirm('Deseja finalizar esta semana? Isso limpará a tabela e salvará o resultado no Histórico de Atividades de cada rotina.')) return;
     
     if (tasks) {
@@ -147,6 +179,10 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
 
   const handleCreateRoutine = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditBoard) {
+      alert("Você não tem permissão para criar rotinas neste quadro.");
+      return;
+    }
     if (!newRoutine.title) return;
 
     const routineConfig = {
@@ -300,12 +336,14 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
       {/* Toolbar */}
       <div className="px-8 py-4 flex items-center justify-between border-b border-slate-200 bg-white shrink-0">
         <div className="flex items-center gap-4">
+          {canEditBoard && (
           <button 
             onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[14px] font-medium transition-colors shadow-sm"
           >
             Nova Rotina
           </button>
+          )}
           
           <div className="w-px h-6 bg-slate-200 mx-1"></div>
 
@@ -321,6 +359,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
           </div>
         </div>
 
+        {canEditBoard && (
         <button 
           onClick={resetAllRoutines}
           className="flex items-center gap-2 text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded hover:bg-blue-50 transition-colors text-sm font-medium border border-slate-200 hover:border-blue-200"
@@ -328,6 +367,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
         >
           <RotateCcw className="w-4 h-4" /> Finalizar Semana
         </button>
+        )}
       </div>
 
       {/* Modal de Histórico */}

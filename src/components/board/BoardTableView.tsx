@@ -129,9 +129,23 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   const currentUserProfile = workspaceUsers?.find((u: any) => u.email === userProfile?.email);
   const isLeaderOrAdmin = currentUserProfile?.role === 'admin' || currentUserProfile?.role === 'leader';
   
+  const { data: boardInfo } = useQuery({
+    queryKey: ['board_info', boardId],
+    queryFn: async () => {
+      const { data } = await supabase.from('boards').select('name').eq('id', boardId).single();
+      return data;
+    }
+  });
+
+  const boardName = boardInfo?.name || '';
+  const isGeneralBoard = boardName.toLowerCase().includes('projeto') || boardName.toLowerCase().includes('panorama') || boardName.toLowerCase().includes('geral');
+  const isBoardOwner = userProfile?.email?.toLowerCase().includes(boardName.toLowerCase().trim());
+  const canEditBoard = isLeaderOrAdmin || isGeneralBoard || isBoardOwner || !boardName;
+
   const canDeleteTask = (task: any) => {
     if (isLeaderOrAdmin) return true;
-    if (task.assignee_email === userProfile?.email) return true;
+    if (canEditBoard && task.assignee_email === userProfile?.email) return true;
+    if (isBoardOwner) return true;
     return false;
   };
 
@@ -466,6 +480,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
   };
 
   const handleCreateItem = async () => {
+    if (!canEditBoard) return;
     const defaultGroup = 'Tarefas pendentes';
     const position = (groupedTasks[defaultGroup]?.length || 0) + 1;
     const { error } = await supabase.from('tasks').insert([
@@ -660,6 +675,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                 )}
                 
                 {/* Linha de Adicionar Item */}
+                {canEditBoard && (
                 <tr className="hover:bg-[#f5f6f8] transition-colors h-[42px]">
                   <td className="w-2 p-0 bg-transparent border-l-[3px] border-transparent group-hover:border-l-slate-300"></td>
                   <td className="w-10 border-r border-slate-200 bg-transparent"></td>
@@ -690,6 +706,7 @@ export function BoardTableView({ boardId }: { boardId: string }) {
                     />
                   </td>
                 </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -703,12 +720,14 @@ export function BoardTableView({ boardId }: { boardId: string }) {
     <div className="w-full h-full relative flex flex-col">
       {/* Toolbar */}
       <div className="px-8 py-4 flex items-center gap-4 border-b border-slate-200 bg-white shrink-0">
+        {canEditBoard && (
         <button 
           onClick={handleCreateItem}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-[14px] font-medium transition-colors shadow-sm"
         >
           Novo Item
         </button>
+        )}
         
         <div className="w-px h-6 bg-slate-200 mx-1"></div>
 
