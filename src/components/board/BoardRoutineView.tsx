@@ -54,7 +54,7 @@ export function BoardRoutineView({ boardId }: { boardId: string }) {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 3000
+    refetchInterval: 30000
   });
 
   const { data: activityLogs } = useQuery({
